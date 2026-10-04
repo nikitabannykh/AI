@@ -1,42 +1,148 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIHotel — AI Visibility</title><style>
-body{margin:0;font:14px system-ui;background:#f6f7fb;color:#111827}.app{display:flex;min-height:100vh}.side{width:220px;background:#0b1730;color:#fff;padding:20px;box-sizing:border-box;position:fixed;inset:0 auto 0 0}.brand{font-size:20px;font-weight:800;margin-bottom:25px}.nav button{display:block;width:100%;padding:11px;border:0;background:none;color:#b9c3d8;text-align:left;border-radius:9px;margin:3px 0;cursor:pointer}.nav button.active,.nav button:hover{background:#ffffff12;color:#fff}.main{margin-left:220px;width:calc(100% - 220px)}header{height:68px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 25px}.content{padding:25px;max-width:1400px;margin:auto}.title{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:18px}h1{margin:0;font-size:28px}.muted{color:#667085;font-size:12px}.grid{display:grid;gap:14px}.four{grid-template-columns:repeat(4,1fr)}.two{grid-template-columns:1.3fr .7fr;margin-top:14px}.three{grid-template-columns:repeat(3,1fr);margin-top:14px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:15px;padding:17px}.kpi b{font-size:27px;display:block;margin-top:7px}.btn{border:1px solid #ddd;background:#fff;padding:9px 13px;border-radius:9px;font-weight:700;cursor:pointer}.primary{background:#5b57f7;color:#fff;border-color:#5b57f7}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px 8px;border-bottom:1px solid #eee;text-align:left;font-size:12px}.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee}.badge{padding:4px 7px;border-radius:99px;font-size:10px;font-weight:800}.yes{background:#e8f8f1;color:#07865c}.no{background:#fff0f0;color:#c63d3d}.warn{background:#fff3e5;color:#b86b10}.action{border:1px solid #e5e7eb;border-radius:10px;padding:11px;margin-top:9px}.setup{max-width:760px;margin:70px auto}.hero{background:#0b1730;color:#fff;border-radius:20px;padding:32px}.form{background:#fff;padding:25px;border-radius:16px;margin:0 25px;position:relative;top:-25px;box-shadow:0 10px 30px #10182812}.field{margin-bottom:15px}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.field input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #ddd;border-radius:9px}.drawer{position:fixed;right:0;top:0;bottom:0;width:min(600px,100%);background:#fff;z-index:10;padding:24px;box-sizing:border-box;overflow:auto;box-shadow:-10px 0 30px #0002;display:none}.drawer.open{display:block}.close{float:right;border:0;background:#eee;border-radius:8px;padding:7px}.answer{background:#f8f8ff;padding:13px;border-radius:10px;line-height:1.5;font-size:12px}@media(max-width:900px){.four,.three,.two{grid-template-columns:1fr}.side{width:180px}.main{margin-left:180px;width:calc(100% - 180px)}}@media(max-width:650px){.side{display:none}.main{margin:0;width:100%}.content{padding:15px}}
-</style></head><body><div id="app"></div><div id="drawer" class="drawer"></div><script>
-const K="aihotel-p0";let s=JSON.parse(localStorage.getItem(K)||"null")||{hotel:null,runs:[],tab:"overview"};const esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));const save=()=>localStorage.setItem(K,JSON.stringify(s));const qs=h=>["best hotels in "+h.city,"best hotel for families in "+h.city,"best hotel with parking and breakfast in "+h.city,"best luxury hotel in "+h.city,"best hotel for couples in "+h.city,"best spa hotel in "+h.city,"best business hotel in "+h.city,"best hotel near city center in "+h.city,"pet friendly hotel in "+h.city,"best weekend hotel in "+h.city,"best value hotel in "+h.city,"hotel with airport transfer in "+h.city];
-function setup(){return '<div class="setup"><div class="hero"><div class="brand">AIHotel <small>P0</small></div><h1>Measure what AI recommends.</h1><p>Query → AI answer → competitor → sources → action → recheck.</p></div><div class="form"><div class="field"><label>Official hotel website</label><input id="url" placeholder="https://examplehotel.com"></div><button class="btn primary" id="start">Analyze hotel →</button></div></div>'}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIHotel — AI Visibility</title>
+<style>
+:root{--navy:#0b1730;--purple:#5b57f7;--bg:#f6f7fb;--line:#e5e7eb;--muted:#667085;--green:#07865c;--red:#c63d3d;--orange:#b86b10}
+*{box-sizing:border-box}body{margin:0;font:14px Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:#111827}.app{display:flex;min-height:100vh}.side{width:220px;background:var(--navy);color:#fff;padding:20px;position:fixed;inset:0 auto 0 0}.brand{font-size:20px;font-weight:800;margin-bottom:25px}.nav button{display:block;width:100%;padding:11px;border:0;background:none;color:#b9c3d8;text-align:left;border-radius:9px;margin:3px 0;cursor:pointer}.nav button.active,.nav button:hover{background:#ffffff12;color:#fff}.main{margin-left:220px;width:calc(100% - 220px)}header{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 25px;position:sticky;top:0;z-index:5}.content{padding:25px;max-width:1450px;margin:auto}.title{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:18px}h1{margin:0;font-size:28px}h2{margin:0 0 6px}h3{margin:0 0 8px}.muted{color:var(--muted);font-size:12px}.grid{display:grid;gap:14px}.four{grid-template-columns:repeat(4,1fr)}.two{grid-template-columns:1.3fr .7fr;margin-top:14px}.three{grid-template-columns:repeat(3,1fr);margin-top:14px}.card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:17px}.kpi b{font-size:27px;display:block;margin-top:7px}.btn{border:1px solid #d9dce4;background:#fff;padding:9px 13px;border-radius:9px;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55;cursor:default}.primary{background:var(--purple);color:#fff;border-color:var(--purple)}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px 8px;border-bottom:1px solid #eee;text-align:left;font-size:12px}.table tr.open{cursor:pointer}.table tr.open:hover{background:#fafafa}.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #eee}.badge{padding:4px 7px;border-radius:99px;font-size:10px;font-weight:800;display:inline-block}.yes{background:#e8f8f1;color:var(--green)}.no{background:#fff0f0;color:var(--red)}.warn{background:#fff3e5;color:var(--orange)}.action{border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:9px}.setup{max-width:760px;margin:70px auto}.hero{background:var(--navy);color:#fff;border-radius:20px;padding:32px}.form{background:#fff;padding:25px;border-radius:16px;margin:0 25px;position:relative;top:-25px;box-shadow:0 10px 30px #10182812}.field{margin-bottom:15px}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.field input,.field textarea,.profile-input{width:100%;padding:10px;border:1px solid #d9dce4;border-radius:9px;font:inherit}.profile-input{background:#fff}.profile-input:focus,.field input:focus,.field textarea:focus{outline:2px solid #5b57f733;border-color:var(--purple)}.profile-top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.status{font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;background:#fff3e5;color:var(--orange)}.status.confirmed{background:#e8f8f1;color:var(--green)}.section-title{display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px}.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.mini-label{font-size:11px;color:var(--muted);margin-bottom:5px}.fact{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.fact-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.fact-source{margin-top:8px;padding-top:8px;border-top:1px solid #eee}.source-link{color:#4b49d9;text-decoration:none}.source-link:hover{text-decoration:underline}.hero-note{font-size:12px;opacity:.82}.empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed #d7dbe5;border-radius:12px}.drawer{position:fixed;right:0;top:0;bottom:0;width:min(600px,100%);background:#fff;z-index:10;padding:24px;overflow:auto;box-shadow:-10px 0 30px #0002;display:none}.drawer.open{display:block}.close{float:right;border:0;background:#eee;border-radius:8px;padding:7px;cursor:pointer}.answer{background:#f8f8ff;padding:13px;border-radius:10px;line-height:1.5;font-size:12px}.alert{margin-bottom:14px;border:1px solid #f1c5c5;background:#fff8f8;color:#6b2525;border-radius:12px;padding:12px}.summary{background:#fafaff;border:1px solid #e9e8ff;border-radius:12px;padding:13px}.pill-row{display:flex;flex-wrap:wrap;gap:7px}.pill{padding:6px 9px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:11px}.check{font-size:11px;font-weight:700}.ok{color:var(--green)}.missing{color:var(--red)}@media(max-width:1000px){.four,.three,.two,.field-grid{grid-template-columns:1fr}.side{width:190px}.main{margin-left:190px;width:calc(100% - 190px)}}@media(max-width:680px){.side{display:none}.main{margin:0;width:100%}.content{padding:15px}header{padding:0 15px;height:auto;min-height:68px;gap:10px;flex-wrap:wrap}.profile-top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div id="app"></div><div id="drawer" class="drawer"></div>
+<script>
+const K="aihotel-p0";
+let s=JSON.parse(localStorage.getItem(K)||"null")||{hotel:null,runs:[],errors:[],tab:"overview",profile:null,profileConfirmed:false};
+const esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const save=()=>localStorage.setItem(K,JSON.stringify(s));
+const qs=h=>[
+"best hotels in "+h.city,
+"best hotel for families in "+h.city,
+"best hotel with parking and breakfast in "+h.city,
+"best luxury hotel in "+h.city,
+"best hotel for couples in "+h.city,
+"best spa hotel in "+h.city,
+"best business hotel in "+h.city,
+"best hotel near city center in "+h.city,
+"pet friendly hotel in "+h.city,
+"best weekend hotel in "+h.city,
+"best value hotel in "+h.city,
+"hotel with airport transfer in "+h.city
+];
 function badge(v){return '<span class="badge '+(v?"yes":"no")+'">'+(v?"Yes":"No")+"</span>"}
-function dashboard(){let r=s.runs.filter(x=>x.status!=="error"),men=r.filter(x=>x.hotel_mentioned).length,rec=r.filter(x=>x.hotel_recommended).length,comps={},src={};r.forEach(x=>(x.competitors||[]).forEach(c=>comps[c.name]=(comps[c.name]||0)+1));r.forEach(x=>(x.sources||[]).forEach(a=>src[a.domain||a.url]=(src[a.domain||a.url]||0)+1));return '<div class="app"><aside class="side"><div class="brand">AIHotel</div><div class="nav">'+["overview","queries","competitors","sources","actions","profile"].map(t=>'<button class="'+(s.tab===t?"active":"")+'" data-tab="'+t+'">'+t[0].toUpperCase()+t.slice(1)+'</button>').join("")+'</div></aside><main class="main"><header><strong>'+esc(s.hotel.name)+'</strong><div><button class="btn" id="run-openai">Run ChatGPT · 12</button> <button class="btn" id="run-claude">Run Claude · 12</button> <button class="btn primary" id="csv">Export CSV</button></div></header><div class="content">'+view(s.tab,r,men,rec,comps,src)+'</div></main></div>'}
-function view(t,r,men,rec,comps,src){if(t==="queries")return '<h1>Query Intelligence</h1><p class="muted">Every row is an observed response from the selected AI model.</p><div class="card"><table class="table"><tr><th>Platform</th><th>Query</th><th>Mention</th><th>Recommend</th><th>Position</th><th>Sources</th></tr>'+r.map((x,i)=>'<tr data-run="'+i+'" class="open"><td><span class="badge '+((x.platform||"chatgpt")==="claude"?"warn":"yes")+'">'+esc(x.platform||"chatgpt")+'</span></td><td>'+esc(x.query)+'</td><td>'+badge(x.hotel_mentioned)+'</td><td>'+badge(x.hotel_recommended)+'</td><td>'+(x.hotel_position??"—")+'</td><td>'+(x.sources||[]).length+'</td></tr>').join("")+'</table></div>';if(t==="competitors")return '<h1>Competitor Intelligence</h1><div class="grid two"><div class="card">'+Object.entries(comps).sort((a,b)=>b[1]-a[1]).map(([n,v])=>'<div class="row"><span>'+esc(n)+'</span><b>'+v+'</b></div>').join("")+'</div><div class="card"><h3>Why competitors win</h3>'+r.flatMap(x=>x.competitors||[]).slice(0,8).map(c=>'<div class="action"><b>'+esc(c.name)+'</b><div class="muted">'+esc(c.reason||"")+'</div></div>').join("")+'</div></div>';if(t==="sources")return '<h1>Source Intelligence</h1><p class="muted">Frequency means observed appearances, not proven causality.</p><div class="card">'+Object.entries(src).sort((a,b)=>b[1]-a[1]).map(([n,v])=>'<div class="row"><span>'+esc(n)+'</span><b>'+v+'</b></div>').join("")+'</div>';if(t==="actions")return '<h1>Opportunities & Action Plan</h1><div class="card">'+(r.flatMap(x=>x.actions||[]).map(a=>'<div class="action"><span class="badge warn">'+esc(a.priority)+'</span><h3>'+esc(a.title)+'</h3><div class="muted">'+esc(a.reason||"")+'</div></div>').join("")||'<p class="muted">Actions appear after real observations.</p>')+'</div>';if(t==="profile")return '<h1>AI-ready Hotel Profile</h1><div class="grid three">'+Object.entries(s.hotel).map(([k,v])=>'<div class="card"><div class="muted">'+esc(k)+'</div><b>'+esc(v)+'</b></div>').join("")+'</div>';return '<div class="title"><div><h1>AI Visibility</h1><p class="muted">'+r.length+' observed ChatGPT responses · '+esc(s.hotel.city)+', '+esc(s.hotel.country)+'</p></div></div>'+(s.errors&&s.errors.length?'<div class="card" style="margin-bottom:14px;border-color:#f1c5c5;background:#fff8f8"><b>'+s.errors.length+' queries failed</b><div class="muted" style="margin-top:5px">'+esc(s.errors[0].error)+'</div></div>':"")+ '<div class="grid four"><div class="card kpi"><span class="muted">Observed runs</span><b>'+r.length+'</b></div><div class="card kpi"><span class="muted">Mention rate</span><b>'+(r.length?Math.round(men/r.length*100):0)+'%</b></div><div class="card kpi"><span class="muted">Recommendation rate</span><b>'+(r.length?Math.round(rec/r.length*100):0)+'%</b></div><div class="card kpi"><span class="muted">Sources observed</span><b>'+Object.keys(src).length+'</b></div></div><div class="grid three"><div class="card"><h3>Top queries</h3>'+r.slice(-5).map(x=>'<div class="row"><span>'+esc(x.query)+'</span><span>'+badge(x.hotel_recommended)+'</span></div>').join("")+'</div><div class="card"><h3>Top competitors</h3>'+Object.entries(comps).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x=>'<div class="row"><span>'+esc(x[0])+'</span><b>'+x[1]+'</b></div>').join("")+'</div><div class="card"><h3>Top sources</h3>'+Object.entries(src).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x=>'<div class="row"><span>'+esc(x[0])+'</span><b>'+x[1]+'</b></div>').join("")+'</div></div>'}
-function openRun(i){let x=s.runs[i];document.getElementById("drawer").innerHTML='<button class="close" onclick="closeD()">×</button><h2>'+esc(x.query)+'</h2><p class="muted">'+new Date(x.checked_at).toLocaleString()+'</p><h3>AI answer</h3><div class="answer">'+esc(x.answer||"")+'</div><h3>Hotel result</h3><p>'+badge(x.hotel_mentioned)+' '+(x.hotel_recommended?'<span class="badge yes">Recommended</span>':"")+(x.hotel_position?'<span class="badge warn">Position #'+x.hotel_position+"</span>":"")+'</p><h3>Competitors</h3>'+(x.competitors||[]).map(c=>'<div class="action"><b>'+esc(c.name)+'</b><div class="muted">'+esc(c.reason||"")+'</div></div>').join("")+'<h3>Sources</h3>'+(x.sources||[]).map(a=>'<div class="action"><a href="'+esc(a.url)+'" target="_blank">'+esc(a.title||a.domain||a.url)+'</a></div>').join("")+'<h3>Gaps</h3>'+(x.gaps||[]).map(g=>'<div class="action">'+esc(g)+'</div>').join("");document.getElementById("drawer").classList.add("open")}
-function closeD(){document.getElementById("drawer").classList.remove("open")}
-async function run(platform){
-  let b=document.getElementById(platform==="claude"?"run-claude":"run-openai");
-  if(!b)return;
-  b.disabled=true;
-  b.textContent=platform==="claude"?"Running Claude…":"Running ChatGPT…";
-  s.runs=s.runs.filter(x=>(x.platform||"chatgpt")!==platform);
-  s.errors=(s.errors||[]).filter(x=>x.platform!==platform);
-  save();
-  const endpoint=platform==="claude"?"/api/audit-claude":"/api/audit";
-  for(const q of qs(s.hotel)){
-    try{
-      let z=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({hotel:s.hotel,query:q})});
-      let x=await z.json();
-      if(!z.ok)throw Error(x.error||"Audit failed");
-      x.platform=platform;
-      s.runs.push(x);
-    }catch(e){
-      s.errors.push({platform,query:q,error:e.message});
-    }
-    save();
-    render();
-    b=document.getElementById(platform==="claude"?"run-claude":"run-openai");
-    if(b){b.disabled=true;b.textContent=platform==="claude"?"Running Claude…":"Running ChatGPT…";}
-  }
-  b=document.getElementById(platform==="claude"?"run-claude":"run-openai");
-  if(b){b.disabled=false;b.textContent=platform==="claude"?"Run Claude · 12":"Run ChatGPT · 12";}
-  save();
-  render();
+function platformBadge(v){return '<span class="badge '+(v==="claude"?"warn":"yes")+'">'+esc(v||"chatgpt")+"</span>"}
+function setup(){return '<div class="setup"><div class="hero"><div class="brand">AIHotel <small>P0</small></div><h1>Measure what AI recommends.</h1><p>Query → AI answer → competitor → sources → action → recheck.</p><div class="hero-note">Start with the official hotel website. AIHotel prepares the hotel profile for you.</div></div><div class="form"><div class="field"><label>Official hotel website</label><input id="url" placeholder="https://examplehotel.com"></div><button class="btn primary" id="start">Analyze hotel →</button></div></div>'}
+
+function dashboard(){
+ const r=s.runs.filter(x=>x.status!=="error");
+ const men=r.filter(x=>x.hotel_mentioned).length, rec=r.filter(x=>x.hotel_recommended).length;
+ const comps={},src={};
+ r.forEach(x=>(x.competitors||[]).forEach(c=>{if(c.name)comps[c.name]=(comps[c.name]||0)+1}));
+ r.forEach(x=>(x.sources||[]).forEach(a=>{const k=a.domain||a.url;if(k)src[k]=(src[k]||0)+1}));
+ return '<div class="app"><aside class="side"><div class="brand">AIHotel</div><div class="nav">'+["overview","queries","competitors","sources","actions","profile"].map(t=>'<button class="'+(s.tab===t?"active":"")+'" data-tab="'+t+'">'+t[0].toUpperCase()+t.slice(1)+'</button>').join("")+'</div></aside><main class="main"><header><strong>'+esc(s.hotel.name)+'</strong><div><button class="btn" id="run-openai">Run ChatGPT · 12</button> <button class="btn" id="run-claude">Run Claude · 12</button> <button class="btn primary" id="csv">Export CSV</button></div></header><div class="content">'+view(s.tab,r,men,rec,comps,src)+'</div></main></div>';
 }
-function render(){document.getElementById("app").innerHTML=s.hotel?dashboard():setup();document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{s.tab=b.dataset.tab;save();render()});let st=document.getElementById("start");if(st)st.onclick=async()=>{let u=document.getElementById("url").value.trim();if(!/^https?:\/\//i.test(u))return alert("Enter valid URL");st.disabled=true;st.textContent="Researching hotel…";try{let z=await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:u})}),p=await z.json();if(!z.ok)throw Error(p.error||"Profile research failed");s.hotel=p;s.runs=[];s.errors=[];save();render();}catch(e){st.disabled=false;st.textContent="Analyze hotel →";alert(e.message)}};let ro=document.getElementById("run-openai");if(ro)ro.onclick=()=>run("chatgpt");let rc=document.getElementById("run-claude");if(rc)rc.onclick=()=>run("claude");document.querySelectorAll(".open").forEach(e=>e.onclick=()=>openRun(Number(e.dataset.run)));let c=document.getElementById("csv");if(c)c.onclick=()=>{let rows=[["platform","query","mentioned","recommended","position"],...s.runs.map(x=>[x.platform||"chatgpt",x.query,x.hotel_mentioned,x.hotel_recommended,x.hotel_position])];let csv=rows.map(r=>r.map(v=>'"'+String(v??"").replaceAll('"','""')+'"').join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="aihotel.csv";a.click()}}
+
+function profileData(){
+ return s.profile||{
+  name:s.hotel?.name||"",url:s.hotel?.url||"",city:s.hotel?.city||"",country:s.hotel?.country||"",stars:s.hotel?.stars||"",
+  type:s.hotel?.type||"",positioning:{summary:s.hotel?.positioning||"",best_for:[],target_guests:[],differentiators:[]},
+  facts:(s.hotel?.key_facts||[]).map((x,i)=>({key:"fact_"+i,label:"Key fact",value:x,confidence:"medium",source_type:"public",source_title:"Audit research",source_url:"",evidence:""})),
+  ai_gaps:[],competitor_signals:[]
+ };
+}
+function listPills(a){return (Array.isArray(a)&&a.length?a:['Not prepared yet']).map(x=>'<span class="pill">'+esc(x)+'</span>').join("")}
+function profileView(){
+ const p=profileData(), confirmed=s.profileConfirmed;
+ const facts=Array.isArray(p.facts)?p.facts:[];
+ return '<div class="profile-top"><div><h1>AI-ready Hotel Profile</h1><p class="muted">Prepared from the official website, public sources and your visibility audit. Review the draft — do not retype the research.</p></div><div><span class="status '+(confirmed?"confirmed":"")+'">'+(confirmed?"Confirmed":"AI-prepared draft")+'</span> <button class="btn" id="refresh-profile" '+(s.runs.length?'':'disabled')+'>Rebuild from audit</button> <button class="btn primary" id="confirm-profile"> '+(confirmed?"Update profile":"Confirm profile")+'</button></div></div>'+
+ '<div class="card"><div class="section-title"><h3>Hotel basics</h3><span class="muted">editable</span></div><div class="field-grid">'+field("Hotel name","pf-name",p.name)+field("Website","pf-url",p.url)+field("City","pf-city",p.city)+field("Country","pf-country",p.country)+field("Stars","pf-stars",p.stars)+field("Hotel type","pf-type",p.type)+'</div></div>'+
+ '<div class="card" style="margin-top:14px"><div class="section-title"><h3>Positioning</h3><span class="muted">what AI should understand about this hotel</span></div>'+textarea("One-line positioning","pf-summary",p.positioning?.summary||"")+'<div class="three"><div><div class="mini-label">Best for</div><div class="pill-row">'+listPills(p.positioning?.best_for)+'</div></div><div><div class="mini-label">Target guests</div><div class="pill-row">'+listPills(p.positioning?.target_guests)+'</div></div><div><div class="mini-label">Differentiators</div><div class="pill-row">'+listPills(p.positioning?.differentiators)+'</div></div></div></div>'+
+ '<div class="section-title"><h2>Facts AI can use</h2><button class="btn" id="add-fact">+ Add fact</button></div>'+
+ '<div id="facts">'+(facts.length?facts.map((x,i)=>factCard(x,i)).join(""):'<div class="empty">No structured facts yet. Run the audit and click “Rebuild from audit”.</div>')+'</div>'+
+ '<div class="card" style="margin-top:14px"><div class="section-title"><h3>AI visibility gaps</h3><span class="muted">derived from the audit, not hotel facts</span></div>'+(p.ai_gaps?.length?p.ai_gaps.map(g=>'<div class="action">'+esc(g)+'</div>').join(""):'<div class="empty">No gaps prepared yet.</div>')+'</div>'+
+ '<div class="card" style="margin-top:14px"><div class="section-title"><h3>Recurring competitor signals</h3><span class="muted">observed / inferred reasons competitors appear stronger</span></div>'+(p.competitor_signals?.length?p.competitor_signals.map(g=>'<div class="action">'+esc(g)+'</div>').join(""):'<div class="empty">No competitor signals prepared yet.</div>')+'</div>';
+}
+function field(label,id,value){return '<div><div class="mini-label">'+label+'</div><input class="profile-input" id="'+id+'" value="'+esc(value)+'"></div>'}
+function textarea(label,id,value){return '<div style="margin-bottom:12px"><div class="mini-label">'+label+'</div><textarea class="profile-input" id="'+id+'" rows="3">'+esc(value)+'</textarea></div>'}
+function factCard(x,i){
+ const status=x.source_type==="missing"?"missing":x.confidence==="high"?"ok":"";
+ return '<div class="fact" data-fact="'+i+'"><div class="fact-head"><b>'+esc(x.label||"Fact")+'</b><span class="check '+status+'">'+esc(x.source_type||"public")+' · '+esc(x.confidence||"medium")+'</span></div><div class="field-grid" style="margin-top:10px">'+field("Value","fact-value-"+i,x.value||"")+field("Source title","fact-title-"+i,x.source_title||"")+field("Source URL","fact-url-"+i,x.source_url||"")+field("Evidence","fact-evidence-"+i,x.evidence||"")+'</div></div>';
+}
+
+function view(t,r,men,rec,comps,src){
+ if(t==="profile")return profileView();
+ if(t==="queries")return '<div class="title"><div><h1>Query Intelligence</h1><p class="muted">Every row is an observed response from the selected AI model.</p></div></div><div class="card"><table class="table"><tr><th>Platform</th><th>Query</th><th>Mention</th><th>Recommend</th><th>Position</th><th>Sources</th></tr>'+r.map(x=>{const i=s.runs.indexOf(x);return '<tr data-run="'+i+'" class="open"><td>'+platformBadge(x.platform||"chatgpt")+'</td><td>'+esc(x.query)+'</td><td>'+badge(x.hotel_mentioned)+'</td><td>'+badge(x.hotel_recommended)+'</td><td>'+(x.hotel_position??"—")+'</td><td>'+(x.sources||[]).length+'</td></tr>'}).join("")+'</table></div>';
+ if(t==="competitors")return '<h1>Competitor Intelligence</h1><p class="muted">Based on competitors actually appearing in observed AI answers.</p><div class="grid two"><div class="card">'+(Object.keys(comps).length?Object.entries(comps).sort((a,b)=>b[1]-a[1]).map(([n,v])=>'<div class="row"><span>'+esc(n)+'</span><b>'+v+'</b></div>').join(""):'<div class="empty">Run an audit first.</div>')+'</div><div class="card"><h3>Why competitors win</h3>'+(r.flatMap(x=>x.competitors||[]).slice(0,10).map(c=>'<div class="action"><b>'+esc(c.name)+'</b><div class="muted">'+esc(c.reason||"")+'</div></div>').join("")||'<div class="empty">No competitor signals yet.</div>')+'</div></div>';
+ if(t==="sources")return '<h1>Source Intelligence</h1><p class="muted">Frequency means observed appearances, not proven causality.</p><div class="card">'+(Object.keys(src).length?Object.entries(src).sort((a,b)=>b[1]-a[1]).map(([n,v])=>'<div class="row"><span>'+esc(n)+'</span><b>'+v+'</b></div>').join(""):'<div class="empty">No sources yet.</div>')+'</div>';
+ if(t==="actions")return '<h1>Opportunities & Action Plan</h1><div class="card">'+(r.flatMap(x=>x.actions||[]).map(a=>'<div class="action"><span class="badge warn">'+esc(a.priority)+'</span><h3>'+esc(a.title)+'</h3><div class="muted">'+esc(a.reason||"")+'</div></div>').join("")||'<div class="empty">Actions appear after real observations.</div>')+'</div>';
+ const chat=r.filter(x=>(x.platform||"chatgpt")==="chatgpt"),claude=r.filter(x=>x.platform==="claude");
+ return '<div class="title"><div><h1>AI Visibility</h1><p class="muted">'+r.length+' observed responses · '+esc(s.hotel.city)+', '+esc(s.hotel.country)+'</p></div></div>'+
+ (s.errors?.length?'<div class="alert"><b>'+s.errors.length+' queries failed</b><div class="muted">'+esc(s.errors[0].error)+'</div></div>':"")+
+ '<div class="grid four"><div class="card kpi"><span class="muted">Observed runs</span><b>'+r.length+'</b></div><div class="card kpi"><span class="muted">Mention rate</span><b>'+(r.length?Math.round(men/r.length*100):0)+'%</b></div><div class="card kpi"><span class="muted">Recommendation rate</span><b>'+(r.length?Math.round(rec/r.length*100):0)+'%</b></div><div class="card kpi"><span class="muted">Sources observed</span><b>'+Object.keys(src).length+'</b></div></div>'+
+ '<div class="card" style="margin-top:14px"><h3>Model comparison</h3><div class="grid two"><div class="summary"><div class="muted">ChatGPT</div><b>'+chat.length+'</b> runs · '+(chat.length?Math.round(chat.filter(x=>x.hotel_recommended).length/chat.length*100):0)+'% recommended</div><div class="summary"><div class="muted">Claude</div><b>'+claude.length+'</b> runs · '+(claude.length?Math.round(claude.filter(x=>x.hotel_recommended).length/claude.length*100):0)+'% recommended</div></div></div>'+
+ '<div class="grid three"><div class="card"><h3>Top queries</h3>'+r.slice(-5).map(x=>'<div class="row"><span>'+esc(x.query)+'</span><span>'+badge(x.hotel_recommended)+'</span></div>').join("")+'</div><div class="card"><h3>Top competitors</h3>'+Object.entries(comps).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x=>'<div class="row"><span>'+esc(x[0])+'</span><b>'+x[1]+'</b></div>').join("")+'</div><div class="card"><h3>Top sources</h3>'+Object.entries(src).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x=>'<div class="row"><span>'+esc(x[0])+'</span><b>'+x[1]+'</b></div>').join("")+'</div></div>';
+}
+
+function collectProfile(){
+ const p=profileData();
+ p.name=document.getElementById("pf-name")?.value.trim()||p.name;
+ p.url=document.getElementById("pf-url")?.value.trim()||p.url;
+ p.city=document.getElementById("pf-city")?.value.trim()||p.city;
+ p.country=document.getElementById("pf-country")?.value.trim()||p.country;
+ p.stars=document.getElementById("pf-stars")?.value.trim()||p.stars;
+ p.type=document.getElementById("pf-type")?.value.trim()||p.type;
+ p.positioning=p.positioning||{summary:"",best_for:[],target_guests:[],differentiators:[]};
+ p.positioning.summary=document.getElementById("pf-summary")?.value.trim()||"";
+ p.facts=(p.facts||[]).map((x,i)=>({...x,value:document.getElementById("fact-value-"+i)?.value.trim()||"",source_title:document.getElementById("fact-title-"+i)?.value.trim()||"",source_url:document.getElementById("fact-url-"+i)?.value.trim()||"",evidence:document.getElementById("fact-evidence-"+i)?.value.trim()||""}));
+ return p;
+}
+
+async function rebuildProfile(){
+ if(!s.runs.length)return alert("Run an audit first.");
+ const b=document.getElementById("refresh-profile");if(b){b.disabled=true;b.textContent="Rebuilding…";}
+ try{
+   const z=await fetch("/api/profile-audit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({hotel:s.hotel,runs:s.runs})});
+   const p=await z.json();if(!z.ok)throw Error(p.error||"Profile rebuild failed");
+   s.profile=p;s.profileConfirmed=false;save();s.tab="profile";render();
+ }catch(e){alert(e.message)}finally{const q=document.getElementById("refresh-profile");if(q){q.disabled=!s.runs.length;q.textContent="Rebuild from audit";}}
+}
+
+async function run(platform){
+ let b=document.getElementById(platform==="claude"?"run-claude":"run-openai");if(!b)return;
+ b.disabled=true;b.textContent=platform==="claude"?"Running Claude…":"Running ChatGPT…";
+ s.runs=s.runs.filter(x=>(x.platform||"chatgpt")!==platform);s.errors=(s.errors||[]).filter(x=>x.platform!==platform);save();
+ const endpoint=platform==="claude"?"/api/audit-claude":"/api/audit";
+ for(const q of qs(s.hotel)){
+  try{const z=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({hotel:s.hotel,query:q})});const x=await z.json();if(!z.ok)throw Error(x.error||"Audit failed");x.platform=platform;s.runs.push(x)}
+  catch(e){s.errors.push({platform,query:q,error:e.message})}
+  save();render();b=document.getElementById(platform==="claude"?"run-claude":"run-openai");if(b){b.disabled=true;b.textContent=platform==="claude"?"Running Claude…":"Running ChatGPT…";}
+ }
+ b=document.getElementById(platform==="claude"?"run-claude":"run-openai");if(b){b.disabled=false;b.textContent=platform==="claude"?"Run Claude · 12":"Run ChatGPT · 12"}save();render();
+ if(s.runs.length){try{const z=await fetch("/api/profile-audit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({hotel:s.hotel,runs:s.runs})});const p=await z.json();if(z.ok&&p?.facts){s.profile=p;s.profileConfirmed=false;save();render()}}catch(e){console.warn("Profile enrichment failed",e)}}
+}
+
+function openRun(i){
+ const x=s.runs[i];if(!x)return;
+ document.getElementById("drawer").innerHTML='<button class="close" onclick="closeD()">×</button><h2>'+esc(x.query)+'</h2><p class="muted">'+esc(x.platform||"chatgpt")+' · '+new Date(x.checked_at).toLocaleString()+'</p><h3>AI answer</h3><div class="answer">'+esc(x.answer||"")+'</div><h3>Hotel result</h3><p>'+badge(x.hotel_mentioned)+' '+(x.hotel_recommended?'<span class="badge yes">Recommended</span>':"")+(x.hotel_position?'<span class="badge warn">Position #'+x.hotel_position+'</span>':"")+'</p><h3>Competitors</h3>'+(x.competitors||[]).map(c=>'<div class="action"><b>'+esc(c.name)+'</b><div class="muted">'+esc(c.reason||"")+'</div></div>').join("")+'<h3>Sources</h3>'+(x.sources||[]).map(a=>'<div class="action"><a class="source-link" href="'+esc(a.url)+'" target="_blank">'+esc(a.title||a.domain||a.url)+'</a></div>').join("")+'<h3>Gaps</h3>'+(x.gaps||[]).map(g=>'<div class="action">'+esc(g)+'</div>').join("");
+ document.getElementById("drawer").classList.add("open")
+}
+function closeD(){document.getElementById("drawer").classList.remove("open")}
+
+function render(){
+ document.getElementById("app").innerHTML=s.hotel?dashboard():setup();
+ document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{s.tab=b.dataset.tab;save();render()});
+ let st=document.getElementById("start");
+ if(st)st.onclick=async()=>{const u=document.getElementById("url").value.trim();if(!/^https?:\/\//i.test(u))return alert("Enter valid URL");st.disabled=true;st.textContent="Researching hotel…";try{const z=await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:u})});const p=await z.json();if(!z.ok)throw Error(p.error||"Profile research failed");s.hotel=p;s.profile=null;s.profileConfirmed=false;s.runs=[];s.errors=[];save();render()}catch(e){st.disabled=false;st.textContent="Analyze hotel →";alert(e.message)}};
+ let ro=document.getElementById("run-openai");if(ro)ro.onclick=()=>run("chatgpt");
+ let rc=document.getElementById("run-claude");if(rc)rc.onclick=()=>run("claude");
+ document.querySelectorAll(".open").forEach(e=>e.onclick=()=>openRun(Number(e.dataset.run)));
+ let c=document.getElementById("csv");if(c)c.onclick=()=>{const rows=[["platform","query","mentioned","recommended","position"],...s.runs.map(x=>[x.platform||"chatgpt",x.query,x.hotel_mentioned,x.hotel_recommended,x.hotel_position])];const csv=rows.map(r=>r.map(v=>'"'+String(v??"").replaceAll('"','""')+'"').join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="aihotel.csv";a.click()};
+ let refresh=document.getElementById("refresh-profile");if(refresh)refresh.onclick=rebuildProfile;
+ let confirm=document.getElementById("confirm-profile");if(confirm)confirm.onclick=()=>{s.profile=collectProfile();s.profileConfirmed=true;save();render()};
+ let add=document.getElementById("add-fact");if(add)add.onclick=()=>{const p=collectProfile();p.facts=p.facts||[];p.facts.push({key:"fact_"+p.facts.length,label:"Hotel fact",value:"",confidence:"medium",source_type:"missing",source_title:"",source_url:"",evidence:""});s.profile=p;save();render()};
+}
 render();
-</script></body></html>
+</script>
+</body>
+</html>
