@@ -22,6 +22,15 @@
 @media(max-width:1050px){.four{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.profile-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:740px){.side{display:none}.main{margin-left:0}.top{padding:0 15px}.content{padding:15px}.head{display:block}.head>div:last-child{margin-top:8px}.ai-state{align-items:flex-start;flex-direction:column}.four{grid-template-columns:1fr 1fr}.profile{padding:10px;margin:20px auto}.setup{padding:10px;margin:20px auto}.hero{padding:24px}.hero h1{font-size:31px}.setup-card{margin:-8px 5px 0;padding:17px}.profile-grid{grid-template-columns:1fr}.two .grid{grid-template-columns:1fr}}
 </style>
+<style>
+.demo{display:inline-flex;align-items:center;gap:6px;background:#fff2cc;color:#8a5a00;border:1px solid #efd78b;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px 8px;border-bottom:1px solid #eef0f4;text-align:left;vertical-align:top;font-size:12px}.table th{font-size:10px;color:#7a8190}.table tr:last-child td{border-bottom:0}
+.row-title{font-weight:750}.row-sub{font-size:10px;color:var(--muted);margin-top:3px}.rate{font-weight:800}.bar{height:7px;background:#eef0f5;border-radius:99px;overflow:hidden;margin-top:5px}.bar span{display:block;height:100%;background:var(--brand);border-radius:99px}
+.rank{display:inline-flex;min-width:28px;justify-content:center;padding:4px 6px;border-radius:8px;background:#f1f2f7;font-weight:800;font-size:11px}
+.answer{border:1px solid #eef0f4;border-radius:12px;padding:12px}.answer-head{display:flex;justify-content:space-between;gap:10px}.answer-model{font-weight:800}.answer-meta{font-size:10px;color:var(--muted);margin-top:3px}.answer-text{margin-top:9px;font-size:12px;line-height:1.5}.answer-footer{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.chip{font-size:10px;border:1px solid #e1e4eb;border-radius:999px;padding:4px 7px;background:#fff}
+.filter-line{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.filter-line .input{min-width:170px}
+.score{font-size:20px;font-weight:800}.delta{font-size:10px;color:var(--ok)}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -48,19 +57,106 @@ function profile(){
   const h=S.hotel;
   return '<div class="profile"><div class="card"><div class="eyebrow">Hotel profile</div><h2 style="margin:6px 0">Профиль найден</h2><div class="small">Проверьте, что система определила правильный отель.</div><div class="profile-grid"><div class="profile-item"><div class="label">Отель</div><div class="value">'+esc(h.name)+'</div></div><div class="profile-item"><div class="label">Город</div><div class="value">'+esc(h.city||'—')+'</div></div><div class="profile-item"><div class="label">Страна</div><div class="value">'+esc(h.country||'—')+'</div></div><div class="profile-item"><div class="label">Домен</div><div class="value">'+esc(h.host)+'</div></div></div><div class="insight"><b>Следующий шаг</b><span>Подключаем AI-источник и начинаем собирать реальные ответы. Именно эти данные станут основой AI Visibility.</span></div><div style="display:flex;justify-content:space-between;margin-top:15px"><button class="btn" id="back">← Назад</button><button class="btn primary" id="open">Открыть AI Visibility →</button></div></div></div>'
 }
+const DEMO={
+  overview:{
+    visibility:68,
+    visibilityDelta:'+9%',
+    recommendation:54,
+    recommendationDelta:'+7%',
+    questions:142,
+    markets:8
+  },
+  questions:[
+    {q:'Best adults-only hotels in Ayia Napa',freq:12400,market:'UK',mention:82,recommend:71,position:1.8},
+    {q:'Best luxury hotel in Cyprus for couples',freq:8700,market:'Germany',mention:64,recommend:52,position:2.6},
+    {q:'Hotels near Nissi Beach',freq:6200,market:'France',mention:41,recommend:28,position:4.2},
+    {q:'Best 5-star hotels in Ayia Napa',freq:4900,market:'UK',mention:76,recommend:61,position:2.1},
+    {q:'Romantic hotels in Cyprus',freq:4100,market:'Poland',mention:37,recommend:24,position:5.1},
+    {q:'Adults-only resorts Cyprus all inclusive',freq:3500,market:'Germany',mention:29,recommend:18,position:6.4},
+    {q:'Hotels with spa in Ayia Napa',freq:3100,market:'Czechia',mention:48,recommend:33,position:3.7},
+    {q:'Luxury hotels near Ayia Napa centre',freq:2700,market:'France',mention:56,recommend:42,position:2.9}
+  ],
+  markets:[
+    {name:'United Kingdom',code:'GB',queries:41,mention:74,recommend:61,lang:'English',trend:'+12%'},
+    {name:'Germany',code:'DE',queries:32,mention:63,recommend:49,lang:'German',trend:'+8%'},
+    {name:'France',code:'FR',queries:24,mention:55,recommend:39,lang:'French',trend:'+5%'},
+    {name:'Poland',code:'PL',queries:18,mention:48,recommend:32,lang:'Polish',trend:'+11%'},
+    {name:'Czechia',code:'CZ',queries:12,mention:43,recommend:29,lang:'Czech',trend:'+4%'},
+    {name:'Cyprus',code:'CY',queries:9,mention:81,recommend:72,lang:'English/Greek',trend:'+3%'}
+  ],
+  competitors:[
+    {name:'Amarande',visibility:68,recommend:54,reason:'Strong adults-only + luxury positioning',delta:'+9%'},
+    {name:'Napa Plaza Hotel',visibility:61,recommend:46,reason:'Frequently associated with nightlife + centre',delta:'+4%'},
+    {name:'Capo Bay Hotel',visibility:57,recommend:43,reason:'Beach / family / location coverage',delta:'+2%'},
+    {name:'Grecian Bay',visibility:51,recommend:38,reason:'Strong beach and landmark references',delta:'-1%'},
+    {name:'Adams Beach Hotel',visibility:44,recommend:31,reason:'High visibility around Nissi Beach',delta:'-3%'}
+  ],
+  answers:[
+    {model:'ChatGPT',market:'UK',question:'Best adults-only hotels in Ayia Napa',time:'Today · 10:42',rank:2,text:'Amarande is one of the strongest luxury adults-only options in Ayia Napa, especially for couples looking for a quieter stay close to the coast.',tags:['Recommended','Position #2','Official site cited']},
+    {model:'Claude',market:'Germany',question:'Best luxury hotel in Cyprus for couples',time:'Today · 09:18',rank:4,text:'Amarande stands out for its adults-only positioning and upscale experience. Other alternatives may have stronger beach access or broader family facilities.',tags:['Mentioned','Position #4','3 competitors']},
+    {model:'Gemini',market:'France',question:'Hotels near Nissi Beach',time:'Yesterday · 18:24',rank:7,text:'Amarande may suit travellers prioritising a premium adults-only stay, although several properties are closer to Nissi Beach.',tags:['Mentioned','Position #7','Not recommended']},
+    {model:'ChatGPT',market:'Poland',question:'Romantic hotels in Cyprus',time:'Yesterday · 14:06',rank:3,text:'For a romantic trip, Amarande is a strong option due to its adults-only concept, premium design and couples-oriented atmosphere.',tags:['Recommended','Position #3','Official site cited']}
+  ],
+  sources:[
+    {domain:'amarandehotel.com',type:'Official website',used:84,impact:'High'},
+    {domain:'tripadvisor.com',type:'Reviews',used:62,impact:'High'},
+    {domain:'booking.com',type:'Booking / availability',used:55,impact:'High'},
+    {domain:'cntraveler.com',type:'Editorial',used:21,impact:'Medium'},
+    {domain:'forbes.com',type:'Editorial',used:14,impact:'Medium'}
+  ]
+};
+
 function nav(){
-  return '<div class="nav"><button id="navOverview" class="'+(S.tab==='overview'?'active':'')+'">◉ Обзор</button><button id="navQuestions" class="'+(S.tab==='questions'?'active':'')+'">⌕ Вопросы</button><button id="navMarkets" class="'+(S.tab==='markets'?'active':'')+'">◌ Рынки</button><button id="navCompetitors" class="'+(S.tab==='competitors'?'active':'')+'">⇄ Конкуренты</button><button id="navSources" class="'+(S.tab==='sources'?'active':'')+'">↗ Источники</button></div>'
+  const items=[['navOverview','overview','◉ Обзор'],['navQuestions','questions','⌕ Вопросы'],['navMarkets','markets','◌ Рынки'],['navCompetitors','competitors','⇄ Конкуренты'],['navAnswers','answers','✦ Ответы AI'],['navSources','sources','↗ Источники']];
+  return '<div class="nav">'+items.map(x=>'<button id="'+x[0]+'" class="'+(S.tab===x[1]?'active':'')+'">'+x[2]+'</button>').join('')+'</div>';
 }
-function layout(title,body){
-  return '<div class="app"><aside class="side"><div class="logo">AIHotel <span>Visibility</span></div>'+nav()+'<div class="side-note">Ценность продукта: понимать, как AI представляет отель, где он появляется и почему рекомендует конкурентов.</div></aside><main class="main"><div class="top"><div class="hotel">'+esc(S.hotel.name)+'</div><button class="btn" id="new">↻ Новый отель</button></div><div class="content"><div class="head"><div><h1>'+title+'</h1><p>'+esc(S.hotel.city||'')+', '+esc(S.hotel.country||'')+'</p></div><div class="small">AI data source: не подключён</div></div>'+body+'</div></main></div>'
+function layout(title,subtitle,body){
+  return '<div class="app"><aside class="side"><div class="logo">AIHotel <span>Visibility</span></div>'+nav()+'<div class="side-note">DEMO: цифры ниже вымышлены только для просмотра UX/UI. В рабочем режиме здесь будут реальные AI-ответы.</div></aside><main class="main"><div class="top"><div class="hotel">'+esc(S.hotel.name)+'</div><div style="display:flex;gap:8px;align-items:center"><span class="demo">DEMO DATA</span><button class="btn" id="new">↻ Новый отель</button></div></div><div class="content"><div class="head"><div><h1>'+title+'</h1><p>'+subtitle+'</p></div><div class="small">Demo snapshot · 30 дней</div></div>'+body+'</div></main></div>';
 }
 function overview(){
-  const body='<div class="card ai-state"><div><div class="eyebrow">Главный статус</div><h2>Реальные AI-данные ещё не подключены</h2><p>Мы не будем показывать выдуманную статистику. Сейчас система знает профиль отеля, но не имеет доступа к реальным AI-ответам.</p></div><div class="status"><span class="dot"></span>NO AI DATA</div></div><div class="grid four"><div class="card kpi"><div class="label">AI Visibility</div><div class="value">—</div><div class="hint">нужны реальные ответы AI</div></div><div class="card kpi"><div class="label">Рекомендация</div><div class="value">—</div><div class="hint">доля ответов с отелем</div></div><div class="card kpi"><div class="label">Популярные вопросы</div><div class="value">—</div><div class="hint">нужны реальные AI-запросы</div></div><div class="card kpi"><div class="label">Страны</div><div class="value">—</div><div class="hint">реальная география AI</div></div></div><div class="grid two" style="margin-top:14px"><section class="card"><div class="section"><div><h3>Что спрашивают про отель</h3><div class="small">Главный будущий отчёт</div></div><span class="pill">AI DATA</span></div><div class="empty"><b>Пока нет реальных AI-запросов</b><p>Здесь появится ranking: вопрос → частота → рынок → AI-модель → упоминание → рекомендация.</p></div></section><section class="card"><div class="section"><div><h3>Откуда идут обращения</h3><div class="small">Реальная география, а не выбранный тестовый рынок</div></div></div><div class="empty"><b>Пока нет данных</b><p>После подключения источника здесь появятся страны, языки и динамика по рынкам.</p></div></section></div><section class="card" style="margin-top:14px"><div class="section"><div><h3>Что сказал AI</h3><div class="small">Каждый ответ должен быть проверяемым</div></div></div><div class="empty"><b>Нет сохранённых ответов</b><p>В полноценной версии здесь будет полный ответ модели, названные конкуренты и конкретные источники, на которые она опиралась.</p></div></section><section class="card" style="margin-top:14px"><div class="section"><div><h3>Что получит отель</h3><div class="small">Измеряем не «красивый score», а причины</div></div></div><div class="grid two"><div class="insight"><b>1. Найдём потерянный спрос</b><span>В каких коммерческих вопросах AI не вспоминает отель.</span></div><div class="insight"><b>2. Найдём конкурентов</b><span>Кого AI выбирает вместо отеля.</span></div><div class="insight"><b>3. Найдём причины</b><span>Какие факты и источники влияют на рекомендацию.</span></div><div class="insight"><b>4. Отследим изменения</b><span>Что меняется по модели, стране и дате.</span></div></div></section></div>';
-  return layout('AI Visibility',body)
+  const q=DEMO.questions.slice(0,5),m=DEMO.markets.slice(0,5),a=DEMO.answers.slice(0,3);
+  const body='<div class="card ai-state"><div><div class="eyebrow">AI visibility</div><h2>Отель хорошо виден в коммерческих AI-сценариях</h2><p>Демо показывает, как будет выглядеть реальная аналитика: вопросы, рынки, рекомендации, ответы и источники.</p></div><div class="status"><span class="dot"></span>DEMO</div></div><div class="grid four"><div class="card kpi"><div class="label">AI Visibility</div><div class="value">'+DEMO.overview.visibility+'%</div><div class="hint">'+DEMO.overview.visibilityDelta+' за 30 дней</div></div><div class="card kpi"><div class="label">Рекомендуют</div><div class="value">'+DEMO.overview.recommendation+'%</div><div class="hint">'+DEMO.overview.recommendationDelta+' за 30 дней</div></div><div class="card kpi"><div class="label">AI-обращения</div><div class="value">'+DEMO.overview.questions+'</div><div class="hint">за выбранный период</div></div><div class="card kpi"><div class="label">Рынки</div><div class="value">'+DEMO.overview.markets+'</div><div class="hint">страны / языки</div></div></div><div class="grid two" style="margin-top:14px"><section class="card"><div class="section"><div><h3>Самые частые обращения</h3><div class="small">Поиск и вопросы, в которых гости выбирают отели</div></div><span class="pill">'+q.length+' из 18</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Вопрос</th><th>Частота</th><th>Видимость</th><th>Рекомендация</th></tr></thead><tbody>'+q.map(x=>'<tr><td><div class="row-title">'+esc(x.q)+'</div><div class="row-sub">'+esc(x.market)+'</div></td><td><b>'+x.freq.toLocaleString('en-US')+'</b></td><td>'+x.mention+'%</td><td>'+x.recommend+'%</td></tr>').join('')+'</tbody></table></div></section><section class="card"><div class="section"><div><h3>Где AI видит отель</h3><div class="small">Демонстрационная география</div></div></div><div class="list">'+m.map(x=>'<div class="list-item"><div style="flex:1"><div class="country-top"><span>'+esc(x.name)+'</span><b>'+x.mention+'%</b></div><div class="bar"><span style="width:'+x.mention+'%"></span></div></div></div>').join('')+'</div></section></div><section class="card" style="margin-top:14px"><div class="section"><div><h3>Последние ответы AI</h3><div class="small">Как именно модель описывает отель</div></div><button class="btn" id="toAnswers">Все ответы →</button></div><div class="list">'+a.map(x=>'<div class="answer"><div class="answer-head"><div><div class="answer-model">'+x.model+' · '+x.market+'</div><div class="answer-meta">'+esc(x.question)+' · '+x.time+'</div></div><span class="rank">#'+x.rank+'</span></div><div class="answer-text">'+esc(x.text)+'</div><div class="answer-footer">'+x.tags.map(t=>'<span class="chip">'+esc(t)+'</span>').join('')+'</div></div>').join('')+'</div></section>';
+  return layout('AI Visibility','Как AI представляет этот отель для потенциального гостя.',body)
 }
-function emptyPage(title,desc){
-  return layout(title,'<section class="card"><div class="empty"><b>Раздел готов</b><p>'+desc+'<br><br>Пока AI-источник не подключён, реальные данные здесь отсутствуют.</p></div></section>')
+function questions(){
+  const body='<div class="card"><div class="section"><div><h3>Популярные обращения</h3><div class="small">Демо: здесь показано, как будет выглядеть реальный ranking AI-вопросов.</div></div><span class="demo">ВЫМЫШЛЕННЫЕ ДАННЫЕ</span></div><div class="filter-line"><input class="input" placeholder="Поиск по вопросам"><select class="input"><option>Все страны</option><option>UK</option><option>Germany</option><option>France</option></select><select class="input"><option>Все модели</option><option>ChatGPT</option><option>Claude</option><option>Gemini</option></select></div><div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Обращение</th><th>Частота</th><th>Упоминание</th><th>Рекомендация</th><th>Позиция</th></tr></thead><tbody>'+DEMO.questions.map((x,i)=>'<tr><td><span class="rank">'+(i+1)+'</span></td><td><div class="row-title">'+esc(x.q)+'</div><div class="row-sub">'+esc(x.market)+'</div></td><td><b>'+x.freq.toLocaleString('en-US')+'</b></td><td>'+x.mention+'%</td><td>'+x.recommend+'%</td><td>#'+x.position+'</td></tr>').join('')+'</tbody></table></div></div>';
+  return layout('Вопросы','Какие обращения приводят к выбору отеля.',body)
 }
+function markets(){
+  const body='<div class="grid two"><section class="card"><div class="section"><div><h3>AI Visibility по странам</h3><div class="small">Сравнение рынков</div></div></div><div class="list">'+DEMO.markets.map(x=>'<div class="list-item"><div style="flex:1"><div class="country-top"><span>'+esc(x.name)+' · '+esc(x.lang)+'</span><b>'+x.mention+'%</b></div><div class="bar"><span style="width:'+x.mention+'%"></span></div><div class="row-sub">'+x.queries+' вопросов · рекомендация '+x.recommend+'% · '+x.trend+'</div></div></div>').join('')+'</div></section><section class="card"><div class="section"><div><h3>Что это значит</h3><div class="small">Пример продуктового инсайта</div></div></div><div class="insight"><b>UK — сильнейший рынок</b><span>Amarande чаще попадает в рекомендации английских AI-ответов, особенно в сценариях adults-only и luxury.</span></div><div class="insight" style="margin-top:9px"><b>Germany — есть потенциал</b><span>Упоминание хорошее, но конкуренты чаще выигрывают по beach/location запросам.</span></div><div class="insight" style="margin-top:9px"><b>Poland — быстро растёт</b><span>Visibility ниже, но динамика +11%. Стоит усиливать локальный контент и источники.</span></div></section></div><section class="card" style="margin-top:14px"><div class="section"><div><h3>Рынок × вопрос</h3><div class="small">Где теряем видимость</div></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Рынок</th><th>Сильный сценарий</th><th>Слабый сценарий</th><th>Что делать</th></tr></thead><tbody>'+[
+['UK','Adults-only','Nissi Beach','Усилить beach proof points'],
+['Germany','Luxury couples','Airport / transfer','Добавить немецкие подтверждённые источники'],
+['France','Luxury','Romantic','Развить couples content'],
+['Poland','Reviews','Family','Показать adult-only positioning']
+].map(x=>'<tr><td><b>'+x[0]+'</b></td><td>'+x[1]+'</td><td>'+x[2]+'</td><td>'+x[3]+'</td></tr>').join('')+'</tbody></table></div></section>';
+  return layout('Рынки','В каких странах и языках AI рекомендует отель.',body)
+}
+function competitors(){
+  const body='<div class="card"><div class="section"><div><h3>Кого AI ставит рядом</h3><div class="small">Демо-рейтинг конкурентов по AI visibility</div></div><span class="demo">DEMO</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Отель</th><th>AI Visibility</th><th>Рекомендация</th><th>Динамика</th><th>Почему появляется</th></tr></thead><tbody>'+DEMO.competitors.map((x,i)=>'<tr><td><span class="rank">'+(i+1)+'</span> <b>'+x.name+'</b></td><td><b>'+x.visibility+'%</b><div class="bar"><span style="width:'+x.visibility+'%"></span></div></td><td>'+x.recommend+'%</td><td class="delta">'+x.delta+'</td><td>'+x.reason+'</td></tr>').join('')+'</tbody></table></div></div><div class="grid two" style="margin-top:14px"><section class="card"><div class="section"><div><h3>Где проигрываем</h3><div class="small">Демо-инсайты</div></div></div><div class="insight"><b>Nissi Beach</b><span>Adams Beach и другие beachfront properties чаще появляются раньше Amarande.</span></div><div class="insight" style="margin-top:9px"><b>Location / centre</b><span>Napa Plaza сильнее в запросах про центр и nightlife.</span></div></section><section class="card"><div class="section"><div><h3>Наше преимущество</h3><div class="small">Что AI уже понимает</div></div></div><div class="insight"><b>Adults-only</b><span>Сильная и легко распознаваемая категория.</span></div><div class="insight" style="margin-top:9px"><b>Luxury couples</b><span>Хорошо работает в сценариях для пар и премиального отдыха.</span></div></section></div>';
+  return layout('Конкуренты','Кого AI рекомендует вместо вашего отеля.',body)
+}
+function answers(){
+  const body='<div class="filter-line"><input class="input" placeholder="Поиск по ответам"><select class="input"><option>Все модели</option><option>ChatGPT</option><option>Claude</option><option>Gemini</option></select><select class="input"><option>Все рынки</option><option>UK</option><option>Germany</option><option>France</option></select></div><div class="list">'+DEMO.answers.map(x=>'<div class="answer"><div class="answer-head"><div><div class="answer-model">'+x.model+' · '+x.market+'</div><div class="answer-meta">'+esc(x.question)+' · '+x.time+'</div></div><span class="rank">#'+x.rank+'</span></div><div class="answer-text">'+esc(x.text)+'</div><div class="answer-footer">'+x.tags.map(t=>'<span class="chip">'+esc(t)+'</span>').join('')+'</div></div>').join('')+'</div>';
+  return layout('Ответы AI','Полные ответы моделей — именно то, что видит потенциальный гость.',body)
+}
+function sources(){
+  const body='<div class="grid two"><section class="card"><div class="section"><div><h3>Источники, влияющие на AI</h3><div class="small">Демо-данные</div></div></div><div class="list">'+DEMO.sources.map(x=>'<div class="list-item"><div style="flex:1"><div class="row-title">'+esc(x.domain)+'</div><div class="row-sub">'+esc(x.type)+' · impact '+esc(x.impact)+'</div><div class="bar"><span style="width:'+Math.min(x.used,100)+'%"></span></div></div><b>'+x.used+'%</b></div>').join('')+'</div></section><section class="card"><div class="section"><div><h3>Что делать</h3><div class="small">Пример рекомендаций</div></div></div><div class="insight"><b>Укрепить official source</b><span>Проверить, что позиционирование adults-only / luxury одинаково на всех официальных страницах.</span></div><div class="insight" style="margin-top:9px"><b>Усилить review coverage</b><span>AI часто использует отзывы для выбора между похожими отелями.</span></div><div class="insight" style="margin-top:9px"><b>Добавить editorial proof</b><span>Публикации независимых медиа могут влиять на рекомендации.</span></div></section></div>';
+  return layout('Источники','Какие сайты и факты влияют на то, что AI говорит об отеле.',body)
+}
+function render(){
+  if(!S.hotel){document.getElementById('app').innerHTML=setup();bind();return}
+  let html=S.tab==='overview'?overview():S.tab==='questions'?questions():S.tab==='markets'?markets():S.tab==='competitors'?competitors():S.tab==='answers'?answers():sources();
+  document.getElementById('app').innerHTML=html;bind();
+}
+function bind(){
+  const go=$('go');if(go)go.onclick=async()=>{const url=$('url').value.trim();if(!url){$('st').innerHTML='<span class="error">Введите официальный URL.</span>';return}go.disabled=true;$('st').textContent='Читаем официальный сайт…';try{const d=await api('/api/discover',{url});S.hotel=d.hotel;S.tab='overview';save();render()}catch(e){$('st').innerHTML='<span class="error">'+esc(e.message)+'</span>';go.disabled=false}};
+  const back=$('back');if(back)back.onclick=()=>{S.hotel=null;save();render()};
+  const open=$('open');if(open)open.onclick=()=>{S.tab='overview';render()};
+  const nw=$('new');if(nw)nw.onclick=()=>{S.hotel=null;save();render()};
+  [['navOverview','overview'],['navQuestions','questions'],['navMarkets','markets'],['navCompetitors','competitors'],['navAnswers','answers'],['navSources','sources']].forEach(function(x){const el=$(x[0]);if(el)el.onclick=function(){S.tab=x[1];render()}});
+  const toAnswers=$('toAnswers');if(toAnswers)toAnswers.onclick=()=>{S.tab='answers';render()};
+}
+render();
 function render(){
   if(!S.hotel){document.getElementById('app').innerHTML=setup();bind();return}
   let html=S.tab==='overview'?overview():S.tab==='questions'?emptyPage('Вопросы','Здесь будет список самых популярных AI-обращений к отелю с частотой и долей рекомендации.'):S.tab==='markets'?emptyPage('Рынки','Здесь будет страна × язык × модель × дата, чтобы видеть различия в AI Visibility.'):S.tab==='competitors'?emptyPage('Конкуренты','Здесь будет рейтинг отелей, которых AI рекомендует вместо вашего, с объяснением причин.'):emptyPage('Источники','Здесь будут конкретные страницы и источники, которые AI использовал в ответах.');
