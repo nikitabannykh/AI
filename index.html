@@ -157,19 +157,7 @@ function bind(){
   const toAnswers=$('toAnswers');if(toAnswers)toAnswers.onclick=()=>{S.tab='answers';render()};
 }
 render();
-function render(){
-  if(!S.hotel){document.getElementById('app').innerHTML=setup();bind();return}
-  let html=S.tab==='overview'?overview():S.tab==='questions'?emptyPage('Вопросы','Здесь будет список самых популярных AI-обращений к отелю с частотой и долей рекомендации.'):S.tab==='markets'?emptyPage('Рынки','Здесь будет страна × язык × модель × дата, чтобы видеть различия в AI Visibility.'):S.tab==='competitors'?emptyPage('Конкуренты','Здесь будет рейтинг отелей, которых AI рекомендует вместо вашего, с объяснением причин.'):emptyPage('Источники','Здесь будут конкретные страницы и источники, которые AI использовал в ответах.');
-  document.getElementById('app').innerHTML=html;bind()
-}
-function bind(){
-  const go=$('go');if(go)go.onclick=async()=>{const url=$('url').value.trim();if(!url){$('st').innerHTML='<span class="error">Введите официальный URL.</span>';return}go.disabled=true;$('st').textContent='Читаем официальный сайт…';try{const d=await api('/api/discover',{url});S.hotel=d.hotel;S.tab='overview';save();render()}catch(e){$('st').innerHTML='<span class="error">'+esc(e.message)+'</span>';go.disabled=false}};
-  const back=$('back');if(back)back.onclick=()=>{S.hotel=null;save();render()};
-  const open=$('open');if(open)open.onclick=()=>{S.tab='overview';render()};
-  const nw=$('new');if(nw)nw.onclick=()=>{S.hotel=null;save();render()};
-  [['navOverview','overview'],['navQuestions','questions'],['navMarkets','markets'],['navCompetitors','competitors'],['navSources','sources']].forEach(function(x){const el=$(x[0]);if(el)el.onclick=function(){S.tab=x[1];render()}});
-}
-render();
+
 </script>
 </body>
 </html>
