@@ -13,11 +13,11 @@ const visibleLocation=html=>{
   const out=[];
   const add=(city,co,raw)=>{city=clean(city);co=toCountry(co);if(city&&co&&city.length<=80&&!out.some(x=>x.city.toLowerCase()===city.toLowerCase()&&x.country===co))out.push({city,country:co,raw})};
   let m;
-  const p1=new RegExp("\\b(?:in|at|from|located in|located at)\\s+([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*\\(\\s*(\${countries})\\s*\\)","ig");
+  const p1=new RegExp("\\b(?:in|at|from|located in|located at)\\s+([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*\\(\\s*(Cyprus|Czechia|Czech Republic|Greece|Spain|Italy|Germany|Austria|France|Portugal|Türkiye|Turkey|United Kingdom|UAE|Malta|Croatia|Poland|Russia)\\s*\\)","ig");
   while((m=p1.exec(text))&&out.length<12)add(m[1],m[2],m[0]);
-  const p2=new RegExp("\\b([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*\\(\\s*(\${countries})\\s*\\)","ig");
+  const p2=new RegExp("\\b([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*\\(\\s*(Cyprus|Czechia|Czech Republic|Greece|Spain|Italy|Germany|Austria|France|Portugal|Türkiye|Turkey|United Kingdom|UAE|Malta|Croatia|Poland|Russia)\\s*\\)","ig");
   while((m=p2.exec(text))&&out.length<20)add(m[1],m[2],m[0]);
-  const p3=new RegExp("\\b([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*,\\s*(\${countries})\\b","ig");
+  const p3=new RegExp("\\b([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*,\\s*(Cyprus|Czechia|Czech Republic|Greece|Spain|Italy|Germany|Austria|France|Portugal|Türkiye|Turkey|United Kingdom|UAE|Malta|Croatia|Poland|Russia)\\b","ig");
   while((m=p3.exec(text))&&out.length<25)add(m[1],m[2],m[0]);
   return out;
 };
