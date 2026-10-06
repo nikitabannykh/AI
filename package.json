@@ -1,1 +1,1 @@
-{"name":"aihotel","private":true,"version":"0.3.0","scripts":{"dev":"vercel dev"},"dependencies":{}}
+{"name":"aihotel","private":true,"version":"0.6.0","type":"module"}
