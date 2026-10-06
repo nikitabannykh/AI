@@ -11,18 +11,14 @@ const meta=html=>{const o={};const re=/<meta\b[^>]*>/gi;let m;while((m=re.exec(h
 const visibleLocation=html=>{
   const text=strip(html);
   const out=[];
-  const add=(city,co,raw)=>{city=clean(city);co=toCountry(co);if(city&&co&&city.length<80&&!out.some(x=>x.city.toLowerCase()===city.toLowerCase()&&x.country===co))out.push({city,country:co,raw})};
-  const pair=new RegExp("([A-Za-zÀ-ÿА-Яа-я'’.-]{2,60}(?:\\\\s+[A-Za-zÀ-ÿА-Яа-я'’.-]{2,60}){0,3})\\\\s*,\\\\s*("+countries+")","gi");
-  let m;while((m=pair.exec(text))&&out.length<12)add(m[1].split(',').pop(),m[2],m[0]);
-  const countryRe=new RegExp("\\\\b("+countries+")\\\\b","gi");
-  while((m=countryRe.exec(text))&&out.length<20){
-    const start=Math.max(0,m.index-180),ctx=text.slice(start,Math.min(text.length,m.index+120));
-    const before=ctx.slice(0,ctx.toLowerCase().lastIndexOf(m[1].toLowerCase())).trim();
-    const chunks=before.split(',').map(clean).filter(Boolean);
-    if(chunks.length)add(chunks[chunks.length-1],m[1],ctx);
-  }
-  const labels=[/address\\\\s*[:\\\\-]\\\\s*([^|]{3,160})/i,/location\\\\s*[:\\\\-]\\\\s*([^|]{3,160})/i,/find us\\\\s*[:\\\\-]\\\\s*([^|]{3,160})/i,/where to find us\\\\s*[:\\\\-]\\\\s*([^|]{3,160})/i,/адрес\\\\s*[:\\\\-]\\\\s*([^|]{3,160})/i,/местоположение\\\\s*[:\\\\-]\\\\s*([^|]{3,160})/i];
-  for(const re of labels){const z=text.match(re);if(z){const raw=clean(z[1]);const p=raw.match(new RegExp("([^,|]{2,80})\\\\s*,\\\\s*("+countries+")","i"));if(p)add(p[1],p[2],raw)}}
+  const add=(city,co,raw)=>{city=clean(city);co=toCountry(co);if(city&&co&&city.length<=80&&!out.some(x=>x.city.toLowerCase()===city.toLowerCase()&&x.country===co))out.push({city,country:co,raw})};
+  let m;
+  const p1=new RegExp("\\b(?:in|at|from|located in|located at)\\s+([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*\\(\\s*(\${countries})\\s*\\)","ig");
+  while((m=p1.exec(text))&&out.length<12)add(m[1],m[2],m[0]);
+  const p2=new RegExp("\\b([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*\\(\\s*(\${countries})\\s*\\)","ig");
+  while((m=p2.exec(text))&&out.length<20)add(m[1],m[2],m[0]);
+  const p3=new RegExp("\\b([A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9][A-Za-zÀ-ÿА-Яа-яА-ЯёЁ0-9 .'-]{1,70}?)\\s*,\\s*(\${countries})\\b","ig");
+  while((m=p3.exec(text))&&out.length<25)add(m[1],m[2],m[0]);
   return out;
 };
 async function openSite(url,ms=7000){const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{redirect:'follow',signal:c.signal,headers:{'user-agent':'Mozilla/5.0 AIHotel/1.0','accept':'text/html,application/xhtml+xml'}});if(!r.ok)return{error:'Официальный сайт вернул HTTP '+r.status};return{url:r.url,html:await r.text()}}catch(e){return{error:'Не удалось открыть официальный сайт: '+(e&&e.message||String(e))}}finally{clearTimeout(timer)}}
