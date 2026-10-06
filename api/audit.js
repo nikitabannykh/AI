@@ -1,90 +1,21 @@
-export default async function handler(req,res){
-  if(req.method!=="POST") return res.status(405).json({error:"POST only"});
-  const key=process.env.OPENAI_API_KEY;
-  if(!key) return res.status(500).json({error:"OPENAI_API_KEY is not configured in Vercel."});
-  const {hotel,query}=req.body||{};
-  if(!hotel?.name||!hotel?.city||!query) return res.status(400).json({error:"hotel.name, hotel.city and query are required"});
-
-  const model=process.env.OPENAI_MODEL||"gpt-6-luna";
-  const prompt=`You are the AIHotel visibility analyst.
-
-Your task is to simulate and analyze what a traveler-facing AI assistant would recommend for this hotel search.
-
-Hotel:
-${JSON.stringify(hotel)}
-
-Traveler query:
-"${query}"
-
-Rules:
-- Interpret generic queries in the hotel's city/country.
-- Use web search before answering.
-- Prefer current, public, reputable sources.
-- Identify the exact hotel and do not confuse it with similarly named properties.
-- Determine whether this hotel is mentioned.
-- Determine whether it is actually recommended for this query.
-- If the answer lists hotels, identify the relevant competitors actually present in the answer.
-- For each competitor, explain the strongest apparent reason they win (location, reviews, family facilities, spa, price/value, beach, brand, parking, etc.). Do not claim causality unless the source supports it; label it as an observed or inferred reason.
-- Extract the sources that materially support the answer.
-- Identify specific information gaps that could make the hotel less likely to be recommended.
-- Produce concrete actions the hotel could take to improve AI visibility.
-- Never invent facts, rankings, reviews, prices or amenities.
-
-Return ONLY valid JSON in this exact shape:
-{
-  "answer":"",
-  "hotel_mentioned":false,
-  "hotel_recommended":false,
-  "hotel_position":null,
-  "competitors":[{"name":"","reason":""}],
-  "sources":[{"title":"","url":"","domain":""}],
-  "gaps":[],
-  "actions":[{"title":"","priority":"high|medium|low","reason":""}]
-}`;
-
-  const r=await fetch("https://api.openai.com/v1/responses",{
-    method:"POST",
-    headers:{"Content-Type":"application/json",Authorization:`Bearer ${key}`},
-    body:JSON.stringify({model,tools:[{type:"web_search"}],input:prompt})
-  });
-  const d=await r.json();
-  if(!r.ok) return res.status(r.status).json({error:d?.error?.message||"OpenAI request failed"});
-
-  const text=d.output_text||(d.output||[])
-    .flatMap(x=>x.content||[])
-    .map(x=>x.text||"").join("");
-
-  let p;
-  try{p=JSON.parse(text)}
-  catch{
-    const m=text.match(/\{[\s\S]*\}/);
-    try{p=m?JSON.parse(m[0]):null}catch{p=null}
-  }
-
-  if(!p) return res.status(502).json({error:"AI returned an unreadable result.",raw:text.slice(0,1000)});
-
-  // Responses API exposes web-search citations as URL annotations.
-  // Use them as a fallback source list when the model did not populate sources.
-  const annotations=(d.output||[])
-    .flatMap(x=>x.content||[])
-    .flatMap(x=>x.annotations||[])
-    .filter(a=>a.type==="url_citation" && (a.url||a.url_citation?.url))
-    .map(a=>{
-      const c=a.url_citation||a;
-      return {title:c.title||c.url, url:c.url, domain:(()=>{try{return new URL(c.url).hostname.replace(/^www\./,"")}catch{return ""}})()};
-    });
-
-  const sources=[...(p.sources||[])];
-  for(const a of annotations){
-    if(a.url && !sources.some(s=>s.url===a.url)) sources.push(a);
-  }
-
-  return res.status(200).json({
-    ...p,
-    sources,
-    query,
-    checked_at:new Date().toISOString(),
-    model,
-    status:"observed"
-  });
-}
+const j=(res,s,b)=>{res.statusCode=s;res.setHeader('content-type','application/json; charset=utf-8');res.setHeader('cache-control','no-store');res.end(JSON.stringify(b))};
+const read=async req=>{let x='';for await(const c of req)x+=c;return x?JSON.parse(x):{}};
+const loc=b=>({type:'approximate',country:b.marketCountry||undefined,city:b.marketCity||undefined,region:b.marketRegion||undefined,timezone:b.marketTimezone||undefined});
+const run=async({query,hotel,key,n,market})=>{
+ const prompt=['You are running one controlled AI visibility benchmark for ONE exact hotel.','Tracked hotel: '+hotel.name,'Official domain: '+hotel.host,'Hotel city: '+(hotel.city||''),'Hotel country: '+(hotel.country||''),'Benchmark market: '+(market.countryName||market.countryCode||'')+(market.city?', '+market.city:''),'Traveler query: '+query,'Use live web search. Do not substitute another hotel or city. At the end output ONLY one JSON object with keys mentioned(boolean), recommended(boolean), position(number|null), officialCitation(boolean), matchedHotel(string). Set mentioned=false when the hotel match is uncertain. Run '+n+'.'].join('\n');
+ try{
+  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({model:process.env.OPENAI_MODEL||'gpt-6-astra',tools:[{type:'web_search',user_location:loc(market)}],tool_choice:'required',input:prompt})});
+  const d=await r.json(); if(!r.ok)return {status:'error',error:d?.error?.message||'OpenAI error',runNo:n};
+  const ans=d.output_text||''; const mm=ans.match(/\{[\s\S]*\}\s*$/); let p={}; try{p=mm?JSON.parse(mm[0]):JSON.parse(ans.match(/\{[\s\S]*\}/)?.[0]||'{}')}catch{}
+  const mh=String(p.matchedHotel||'').toLowerCase(), hn=String(hotel.name||'').toLowerCase(); const mentioned=!!p.mentioned || (mh&&hn&&mh.includes(hn));
+  const recommended=mentioned&&p.recommended===true;
+  const citations=[]; for(const item of d.output||[]) for(const c of item.content||[]) for(const a of c.annotations||[]) if(a.type==='url_citation'&&a.url) citations.push({title:a.title||a.url,url:a.url,domain:(()=>{try{return new URL(a.url).hostname.replace(/^www\./,'')}catch{return ''}})()});
+  const officialCitation=citations.some(c=>c.domain===hotel.host||c.domain?.endsWith('.'+hotel.host));
+  return {status:'ok',provider:'OpenAI',model:process.env.OPENAI_MODEL||'gpt-6-astra',runNo:n,answer:ans,citations:[...new Map(citations.map(x=>[x.url,x])).values()],result:{mentioned,recommended,position:Number.isFinite(p.position)?p.position:null,officialCitation,matchedHotel:p.matchedHotel||''}};
+ }catch(e){return {status:'error',provider:'OpenAI',runNo:n,error:e.message}}
+};
+const qs=h=>{const c=h.city||'';return [
+ 'Лучшие отели '+c,'Лучшие отели '+c+' с парковкой','Лучшие семейные отели '+c,'Лучшие spa-отели '+c,'Лучшие отели '+c+' для пар','Лучшие бизнес-отели '+c,'Лучшие отели '+c+' рядом с центром','Отели '+c+' где разрешены животные','Отели '+c+' с трансфером из аэропорта','Лучшие отели '+c+' по соотношению цена/качество','Что известно об отеле '+h.name,'Какой отель выбрать в '+c+' если важен бассейн'];
+};
+const stats=rows=>{const ok=rows.filter(x=>x.status==='ok'),n=ok.length,m=ok.filter(x=>x.result?.mentioned).length,r=ok.filter(x=>x.result?.recommended).length,c=ok.filter(x=>x.result?.officialCitation).length,pos=ok.map(x=>x.result?.position).filter(Number.isFinite);return {totalRuns:n,mentionCount:m,mentionRate:n?Math.round(m/n*100):0,recommendationCount:r,recommendationRate:n?Math.round(r/n*100):0,officialCitationCount:c,officialCitationRate:n?Math.round(c/n*100):0,averagePosition:pos.length?Number((pos.reduce((a,b)=>a+b,0)/pos.length).toFixed(1)):null,errors:rows.length-n}};
+export default async function handler(req,res){try{if(req.method!=='POST')return j(res,405,{error:'POST only'});const b=await read(req),key=req.headers['x-openai-api-key']||process.env.OPENAI_API_KEY;if(!key)return j(res,401,{error:'OpenAI API key не подключён'});if(!b.hotel?.name||!b.hotel?.city)return j(res,400,{error:'Нужно надёжно определить название и город отеля'});const hotel=b.hotel;const queries=qs(hotel),runs=Math.max(1,Math.min(10,Number(b.runsPerQuery)||5)),market={countryCode:b.marketCountry||'',countryName:b.marketCountryName||'',city:b.marketCity||hotel.city,region:b.marketRegion||'',timezone:b.marketTimezone||''};const jobs=queries.flatMap(q=>Array.from({length:runs},(_,i)=>run({query:q,hotel,key,n:i+1,market})));const results=await Promise.all(jobs),observedAt=new Date().toISOString();return j(res,200,{hotel,settings:{queryCount:queries.length,runsPerQuery:runs,market},queryStats:queries.map(q=>({query:q,...stats(results.filter(x=>x.query===q))})),results:results.map(x=>({...x,query:x.query||'',market,checkedAt:observedAt})),aggregate:stats(results),observedAt})}catch(e){return j(res,500,{error:e.message})}}
