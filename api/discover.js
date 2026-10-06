@@ -1,129 +1,39 @@
-const j=(res,s,b)=>{res.statusCode=s;res.setHeader('content-type','application/json; charset=utf-8');res.setHeader('cache-control','no-store');res.end(JSON.stringify(b))};
-const read=async req=>{let x='';for await(const c of req)x+=c;return x?JSON.parse(x):{}};
-const strip=x=>String(x||'').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
-const clean=x=>String(x??'').replace(/\\s+/g,' ').trim()||null;
-
-function countryName(x){
-  const v=clean(typeof x==='object'?(x.name||x.code):x);if(!v)return null;
-  const m={CZ:'Czechia',CS:'Czechia',CY:'Cyprus',GR:'Greece',ES:'Spain',IT:'Italy',FR:'France',DE:'Germany',AT:'Austria',PT:'Portugal',TR:'Türkiye',GB:'United Kingdom',UK:'United Kingdom',US:'United States',AE:'United Arab Emirates',HR:'Croatia',MT:'Malta',PL:'Poland',SK:'Slovakia'};
-  return m[v.toUpperCase()]||v;
-}
-function flatten(v,out=[]){
-  if(!v)return out;
-  if(Array.isArray(v)){for(const z of v)flatten(z,out);return out}
-  if(typeof v==='object'){if(v['@graph'])flatten(v['@graph'],out);out.push(v)}
-  return out;
-}
-function types(x){
-  const t=x?.['@type'];return (Array.isArray(t)?t:[t]).filter(Boolean).map(String).join(' ').toLowerCase();
-}
-function addresses(x){
-  const out=[];const add=v=>{if(v&&typeof v==='object')out.push(v)};
-  add(x?.address);add(x?.location?.address);add(x?.contactPoint?.address);
-  if(Array.isArray(x?.location))x.location.forEach(z=>add(z?.address));
-  return out;
-}
-function parseJsonLd(html){
-  const out=[];
-  for(const m of html.matchAll(/<script[^>]*type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi)){
-    try{out.push(...flatten(JSON.parse(m[1])))}catch{}
-  }
-  return out;
-}
-function extract(html){
-  const ld=parseJsonLd(html);let best=null;
-  for(const x of ld){
-    const t=types(x);
-    const a=addresses(x)[0];
-    if(!a)continue;
-    const cand={
-      name:clean(x.name),
-      city:clean(a.addressLocality||a.city||a.town),
-      country:countryName(a.addressCountry||a.country),
-      street:clean(a.streetAddress),
-      postal:clean(a.postalCode),
-      stars:x.starRating?.ratingValue||x.starRating||null,
-      rooms:x.numberOfRooms||null
-    };
-    if(cand.city&&cand.country&&(t.includes('hotel')||t.includes('resort')||t.includes('lodging')||cand.name))return cand;
-    if(!best&&(cand.city||cand.country||cand.street))best=cand;
-  }
-
-  const text=strip(html);
-  const meta={};
-  for(const m of html.matchAll(/<meta\\b[^>]*>/gi)){
-    const tag=m[0],n=(tag.match(/(?:name|property|itemprop)=["']([^"']+)["']/i)||[])[1],c=(tag.match(/content=["']([^"']*)["']/i)||[])[1];
-    if(n&&c)meta[n.toLowerCase()]=clean(c);
-  }
-  const city=meta.addresslocality||meta['og:locality']||meta['hotel:contact_data:locality']||meta['geo.placename'];
-  const country=countryName(meta.addresscountry||meta['og:country-name']||meta['hotel:contact_data:country_name']||meta.country||meta['geo.country']);
-  const street=meta['street-address']||meta.address||null,postal=meta['postal-code']||null;
-  const metaCand={name:meta['og:site_name'],city:city||null,country:country||null,street,postal,stars:null,rooms:null};
-  if(metaCand.city||metaCand.country||metaCand.street)best=best||metaCand;
-
-  const addrText=text.match(/(?:address|adresse|dirección|indirizzo|адрес)[^\\n]{0,120}/i)?.[0]||'';
-  if(!best?.street&&addrText)best={...(best||{}),street:addrText.replace(/^(?:address|adresse|dirección|indirizzo|адрес)[:\\s-]*/i,'').trim()};
-
-  return best||{};
-}
-async function fetchPage(url,ms=4500){
-  const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
-  try{
-    const r=await fetch(url,{redirect:'follow',signal:c.signal,headers:{'user-agent':'AIHotel/1.0','accept':'text/html,application/xhtml+xml'}});
-    if(!r.ok)return null;
-    return {url:r.url,html:await r.text()};
-  }catch{return null}finally{clearTimeout(t)}
-}
-function sameHost(base,href){try{return new URL(href,base).hostname.replace(/^www\\./,'')===new URL(base).hostname.replace(/^www\\./,'')}catch{return false}}
-function useful(href,text){return /(contact|location|where|directions|about|hotel|property|find-us|findus|impressum|contacto|ubicacion|adresse|standort)/i.test((href+' '+text).toLowerCase())}
-async function geocode(q){
-  if(!q)return null;
-  const c=new AbortController(),t=setTimeout(()=>c.abort(),3500);
-  try{
-    const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q='+encodeURIComponent(q);
-    const r=await fetch(u,{signal:c.signal,headers:{'user-agent':'AIHotel/1.0'}});
-    if(!r.ok)return null;
-    const a=(await r.json())[0]?.address||{};
-    return {city:clean(a.city||a.town||a.village||a.municipality),country:countryName(a.country_code||a.country)};
-  }catch{return null}finally{clearTimeout(t)}
-}
+const send=(res,status,data)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.setHeader('cache-control','no-store');res.end(JSON.stringify(data))};
+const readBody=async req=>{let s='';for await(const c of req)s+=c;return s?safeJson(s):{}};
+const safeJson=s=>{try{return JSON.parse(s)}catch{return null}};
+const clean=s=>String(s==null?'':s).replace(/\\s+/g,' ').trim();
+const strip=s=>String(s||'').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'").replace(/\\s+/g,' ').trim();
+const country=s=>{const v=clean(typeof s==='object'?(s.name||s.code):s);const m={CY:'Cyprus',CZ:'Czechia',GR:'Greece',ES:'Spain',IT:'Italy',DE:'Germany',AT:'Austria',FR:'France',GB:'United Kingdom',UK:'United Kingdom',PT:'Portugal',TR:'Türkiye',AE:'United Arab Emirates',HR:'Croatia',MT:'Malta',PL:'Poland',SK:'Slovakia',US:'United States',CA:'Canada',RU:'Russia'};return v?(m[v.toUpperCase()]||v):null};
+const jsonLd=html=>{const out=[];const re=/<script[^>]*type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi;let m;while((m=re.exec(html))){try{const x=JSON.parse(m[1]);if(Array.isArray(x))out.push(...x);else if(x&&x['@graph']&&Array.isArray(x['@graph']))out.push(...x['@graph']);else if(x)out.push(x)}catch{}}return out};
+const addressOf=x=>{if(!x||typeof x!=='object')return null;const a=x.address||x.location?.address;if(a&&typeof a==='object')return a;return null};
+const candidateFromLd=html=>{const items=jsonLd(html);for(const x of items){const a=addressOf(x);if(!a)continue;const t=Array.isArray(x['@type'])?x['@type'].join(' '):String(x['@type']||'');const city=clean(a.addressLocality||a.city);const co=country(a.addressCountry||a.country);if(city&&co&&(x.name||/hotel|resort|lodging/i.test(t)))return{name:clean(x.name),city,country:co,street:clean(a.streetAddress),postal:clean(a.postalCode),stars:x.starRating&&x.starRating.ratingValue||null,rooms:x.numberOfRooms||null}}return null};
+const meta=html=>{const out={};const re=/<meta\\b[^>]*>/gi;let m;while((m=re.exec(html))){const tag=m[0];const n=(tag.match(/(?:name|property|itemprop)=["']([^"']+)["']/i)||[])[1];const c=(tag.match(/content=["']([^"']*)["']/i)||[])[1];if(n&&c)out[n.toLowerCase()]=clean(c)}return out};
+const fromText=(html,title)=>{const text=strip(html);let city=null,co=null;const patterns=[/\\b(?:address|adresse|адрес|dirección|indirizzo)\\s*[:,-]\\s*([^|]{3,120})/i,/\\b(?:location|местоположение)\\s*[:,-]\\s*([^|]{3,120})/i];let address='';for(const p of patterns){const m=text.match(p);if(m){address=m[1];break}}const cityMatch=address.match(/,\\s*([A-ZА-Я][^,]{2,50})\\s*,/);if(cityMatch)city=clean(cityMatch[1]);const coMatch=text.match(/\\b(Cyprus|Czechia|Czech Republic|Greece|Spain|Italy|Germany|Austria|France|Portugal|Türkiye|Turkey|United Kingdom|UAE|Malta|Croatia|Poland)\\b/i);if(coMatch)co=country(coMatch[1]);return{city,country:co,street:address||null,name:null}};
+async function openSite(url){try{const r=await fetch(url,{redirect:'follow',headers:{'user-agent':'Mozilla/5.0 AIHotel/1.0','accept':'text/html,application/xhtml+xml'}});if(!r.ok)return{error:'Сайт вернул HTTP '+r.status};return{url:r.url,html:await r.text()}}catch(e){return{error:'Не удалось открыть сайт: '+(e&&e.message||String(e))}}}
 export default async function handler(req,res){
+  if(req.method!=='POST')return send(res,405,{error:'POST only'});
   try{
-    if(req.method!=='POST')return j(res,405,{error:'POST only'});
-    const b=await read(req);if(!b.url)return j(res,400,{error:'url required'});
-    let first=await fetchPage(b.url);
-    if(!first)return j(res,502,{error:'Не удалось открыть официальный сайт. Проверьте URL и доступность сайта.'});
-    const base=extract(first.html);let found={...base};let checked=1;let combined=first.html;
-
-    if(!found.city||!found.country){
-      const candidates=[];
-      for(const m of first.html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi)){
-        const href=m[1],txt=strip(m[2]);
-        if(sameHost(first.url,href)&&useful(href,txt)){
-          try{const u=new URL(href,first.url).href;if(!candidates.includes(u))candidates.push(u)}catch{}
-        }
-      }
-      for(const p of ['/contact','/contact-us','/location','/about-us']){
-        try{const u=new URL(p,first.url).href;if(!candidates.includes(u))candidates.push(u)}catch{}
-      }
-      const pages=await Promise.all(candidates.slice(0,3).map(u=>fetchPage(u)));
-      for(const p of pages){if(!p)continue;checked++;combined+='\\n'+p.html;const x=extract(p.html);for(const [k,v] of Object.entries(x))if(v&&!found[k])found[k]=v;if(found.city&&found.country)break}
+    const body=await readBody(req);
+    if(!body||!body.url)return send(res,400,{error:'url required'});
+    let url=String(body.url).trim();if(!/^https?:\\/\\//i.test(url))url='https://'+url;
+    const page=await openSite(url);if(page.error)return send(res,502,{error:page.error});
+    const html=page.html||'';const finalUrl=page.url||url;const md=meta(html);const ld=candidateFromLd(html);
+    const titleMatch=html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);const title=strip(titleMatch?titleMatch[1]:'')||new URL(finalUrl).hostname;
+    const txt=fromText(html,title);
+    const host=new URL(finalUrl).hostname.replace(/^www\\./,'');
+    const hotel={
+      name:(ld&&ld.name)||md['og:site_name']||title.split('|')[0].split(' - ')[0].trim(),
+      url:finalUrl,host,
+      city:(ld&&ld.city)||md.addresslocality||md['og:locality']||txt.city||null,
+      country:(ld&&ld.country)||country(md.addresscountry||md['og:country-name']||txt.country)||null,
+      stars:(ld&&ld.stars)||null,rooms:(ld&&ld.rooms)||null,
+      address:((ld&&ld.street)||md['street-address']||txt.street||'')+(ld&&ld.postal?', '+ld.postal:'')
+    };
+    if(!hotel.city||!hotel.country){
+      return send(res,422,{error:'Не удалось определить город и страну автоматически. На официальном сайте не найден однозначный адрес.',hotel,debug:{title,htmlLength:html.length}});
     }
-
-    if(!found.city||!found.country){
-      const q=[found.name,found.street,found.postal,found.city,found.country].filter(Boolean).join(', ');
-      const g=await geocode(q);if(g){found.city=found.city||g.city;found.country=found.country||g.country}
-    }
-
-    const ld=parseJsonLd(combined);
-    const h=ld.find(x=>/hotel|resort|lodging/i.test(types(x)))||ld.find(x=>x?.name)||{};
-    const a=addresses(h)[0]||{};
-    const title=(combined.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||new URL(first.url).hostname;
-    const host=new URL(first.url).hostname.replace(/^www\\./,'');
-    const name=found.name||clean(h.name)||strip(title).split('|')[0].split(' - ')[0].trim();
-    const city=clean(found.city||a.addressLocality);
-    const country=countryName(found.country||a.addressCountry);
-    if(!city||!country)return j(res,422,{error:'Не удалось определить город и страну автоматически. На сайте не найден достаточно однозначный адрес.',hotel:{name,url:first.url,host,city,country,street:found.street||a.streetAddress||null,postal:found.postal||a.postalCode||null},debug:{checkedPages:checked}});
-    return j(res,200,{hotel:{name,url:first.url,host,city,country,stars:found.stars||h.starRating?.ratingValue||h.starRating||null,rooms:found.rooms||h.numberOfRooms||null,address:[found.street||a.streetAddress,found.postal||a.postalCode,city].filter(Boolean).join(', ')},crawl:{title:strip(title),textSample:strip(combined).slice(0,1800),checkedPages:checked}});
-  }catch(e){return j(res,500,{error:'Ошибка обработки сайта: '+(e?.message||String(e))})}
+    return send(res,200,{hotel,crawl:{title,textSample:strip(html).slice(0,1800),checkedPages:1}});
+  }catch(e){
+    return send(res,500,{error:'Ошибка обработки сайта: '+(e&&e.message||String(e))});
+  }
 }
