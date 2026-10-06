@@ -67,8 +67,8 @@ function extractFromHtml(html){
   return candidates.find(x=>x.city||x.country)||null;
 }
 
-async function geocodeFallback(street,postal,country){
-  const q=[street,postal,country].filter(Boolean).join(', ');
+async function geocodeFallback(name,street,postal,city,country){
+  const q=[name,street,postal,city,country].filter(Boolean).join(', ');
   if(!q)return null;
   try{
     const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q='+encodeURIComponent(q);
@@ -128,8 +128,8 @@ export default async function handler(req,res){
     }
 
     // If the site exposes a full street/postcode but omits locality, resolve it from a public geocoder.
-    if((!found.city||!found.country)&&(found.street||found.postal)){
-      const g=await geocodeFallback(found.street,found.postal,found.country);
+    if(!found.city||!found.country){
+      const g=await geocodeFallback(found.name,found.street,found.postal,found.city,found.country);
       if(g)found={...found,city:found.city||g.city,country:found.country||g.country,lat:g.lat,lon:g.lon};
     }
 
