@@ -54,6 +54,28 @@ function variants(h,f){
  return out;
 }
 
+function expandUniverse(base,hotel){
+ const city=clean(hotel.city||'the destination');
+ const mods=['best','top','luxury','romantic','for couples','for honeymoon','for a quiet stay','with sea view','near the beach','near nightlife','with spa','with breakfast','with airport transfer','with room service','with gluten-free options','with vegetarian options'];
+ const out=[...base];
+ for(const row of base){
+   if(!/^(Discovery|Location|Room|Dining|Services)$/.test(row.stage))continue;
+   for(const m of mods){
+     let q=row.query;
+     if(m==='best')q=q.replace(/^best /i,'');
+     else if(/best |top /i.test(q))q=q.replace(/^(best|top) /i,m+' ');
+     else if(row.stage==='Room'&&/with sea view/.test(m))q=`best ${m} rooms in ${city}`;
+     else if(row.stage==='Dining'&&/options/.test(m))q=`hotels in ${city} ${m}`;
+     else if(row.stage==='Services'&&/airport transfer|spa|room service/.test(m))q=`hotels in ${city} ${m}`;
+     else q=row.query+' '+m;
+     if(q.length>12)out.push({...row,query:clean(q),fit:n((row.fit||70)+(/luxury|couples|honeymoon|adults-only/.test(m)?3:0))});
+   }
+ }
+ const seen=new Set(),dedup=[];
+ for(const x of out){const k=slug(x.stage+'|'+x.query);if(!seen.has(k)){seen.add(k);dedup.push(x)}}
+ return dedup.slice(0,500);
+}
+
 function demandFor(q, provided){
  const key=slug(q);
  const hit=(provided||[]).find(x=>slug(x.query||x.keyword)===key);
@@ -110,7 +132,7 @@ export default async function handler(req,res){
  try{
   const b=await read(req),hotel=b.hotel||{},content=b.content||{},f=hotelFacts(hotel,content),provided=b.demandData||b.searchDemand||[];
   if(!hotel.city&&!content.basics?.city)return json(res,400,{error:'hotel.city required'});
-  const candidates=variants(hotel,f);
+  const candidates=expandUniverse(variants(hotel,f),hotel);
   const market=b.market||'Global';
   const rows=candidates.map((x,i)=>{
     const d=demandFor(x.query,provided),intentScoreValue=intentScore(x.stage,x.intent),rel=relevanceScore(x,f),comp=competition(x.stage,x.intent),coverage=contentCoverage(x,f);
