@@ -68,6 +68,7 @@ const storedDemand=(()=>{try{return JSON.parse(localStorage.getItem('aihotel-dem
 const defaults={rooms:{area:'',adults:'2',children:'0',balcony:'',accessible:'',smoking:'Non-smoking',crib:'',inventory:'',bookingUrl:'',photos:[]},restaurants:{mealPeriods:'',dressCode:'',seating:'',dietary:'',priceLevel:'',bookingUrl:'',photos:[]},menus:{currency:'EUR',availability:'',ingredients:'',allergens:'',dietary:'',toppings:'',modifiers:'',spicy:'',photos:[]},services:{duration:'',leadTime:'',availability:'',audience:'',bookingUrl:'',photo:'',photos:[]},facilities:{rules:'',ageLimit:'',reservation:'',season:'',photos:[]},faqs:{category:'',language:'English',source:''},nearby:{travelTime:'',openingHours:'',ticket:'',bestFor:''},policies:{minimumAge:'',deposit:'',identification:'',quietHours:'',taxes:'',accessibility:''},basics:{shortDescription:'',brandPromise:'',paymentMethods:'',arrivalNotes:''}};
 const normalizeContent=(content)=>{const out=JSON.parse(JSON.stringify(content));Object.keys(defaults).forEach(k=>{if(Array.isArray(out[k]))out[k]=out[k].map(x=>Object.assign({},defaults[k]||{},x));else out[k]=Object.assign({},defaults[k]||{},out[k]||{})});return out};
 const S={hotel:old.hotel||null,tab:'overview',contentTab:'basics',content:normalizeContent(mergeContent(SEED,storedContent)),universe:storedUniverse,demandData:storedDemand};
+S.period=(()=>{try{return JSON.parse(localStorage.getItem('aihotel-period')||'null')}catch{return null}})()||{kind:'30d',from:'',to:''};
 async function api(path,body){
   const c=new AbortController(),t=setTimeout(()=>c.abort(),12000);
   try{
@@ -81,6 +82,10 @@ function save(){localStorage.setItem('aihotel-profile',JSON.stringify({hotel:S.h
 function saveContent(){localStorage.setItem('aihotel-content',JSON.stringify(S.content))}
 function saveUniverse(){localStorage.setItem('aihotel-universe',JSON.stringify(S.universe||null))}
 function saveDemand(){localStorage.setItem('aihotel-demand',JSON.stringify(S.demandData||[]))}
+function savePeriod(){localStorage.setItem('aihotel-period',JSON.stringify(S.period))}
+function periodDays(){if(S.period.kind==='7d')return 7;if(S.period.kind==='90d')return 90;if(S.period.kind==='365d')return 365;if(S.period.kind==='custom'&&S.period.from&&S.period.to){return Math.max(1,Math.round((new Date(S.period.to)-new Date(S.period.from))/86400000)+1)}return 30}
+function periodLabel(){if(S.period.kind==='7d')return '7 дней';if(S.period.kind==='90d')return '90 дней';if(S.period.kind==='365d')return '12 месяцев';if(S.period.kind==='custom'&&S.period.from&&S.period.to)return new Date(S.period.from).toLocaleDateString('ru-RU')+' — '+new Date(S.period.to).toLocaleDateString('ru-RU');return '30 дней'}
+function periodFactor(){return Math.max(.15,periodDays()/30)}
 function contentScore(){try{return Math.round(CONTENT_SECTIONS.map(s=>sectionHealth(s[0]).pct).reduce((a,b)=>a+b,0)/CONTENT_SECTIONS.length)}catch{return 0}}
 function setup(){
   return '<div class="setup"><div class="hero"><div class="logo">AIHotel <span>Visibility</span></div><h1>Покажите отелю, как его видит AI.</h1><p>Введите официальный сайт. Мы автоматически найдём название и локацию. После подключения AI-источника здесь появятся реальные обращения, страны, рекомендации, конкуренты и источники.</p></div><div class="setup-card"><div class="field"><label>Официальный сайт</label><input id="url" class="setup-input" placeholder="https://www.examplehotel.com"><div class="help">Только URL. Город и страна вводить не нужно.</div></div><button id="go" class="btn primary">Найти отель →</button><div id="st" class="loading"></div></div></div>'
