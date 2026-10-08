@@ -52,10 +52,48 @@ const meta=html=>{
   return out;
 };
 
+async function fetchRenderedPage(url,ms=9000){
+  const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);
+  try{
+    const timeoutSec=Math.max(5,Math.min(20,Math.round(ms/1000)));
+    const r=await fetch('https://r.jina.ai/'+url,{
+      redirect:'follow',
+      signal:c.signal,
+      headers:{
+        'user-agent':'Mozilla/5.0 AIHotel/1.0',
+        'accept':'text/html,application/xhtml+xml,text/plain;q=0.9',
+        'x-engine':'browser',
+        'x-respond-with':'html',
+        'x-respond-timing':'network-idle',
+        'x-timeout':String(timeoutSec),
+        'x-with-iframe':'true'
+      }
+    });
+    if(!r.ok)return null;
+    const html=await r.text();
+    if(!html||strip(html).length<80)return null;
+    return{url,html,rendered:true};
+  }catch{return null}finally{clearTimeout(timer)}
+}
+
 async function fetchPage(url,ms=2500){
   const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);
-  try{const r=await fetch(url,{redirect:'follow',signal:c.signal,headers:{'user-agent':'Mozilla/5.0 AIHotel/1.0','accept':'text/html,application/xhtml+xml'}});if(!r.ok)return null;return{url:r.url,html:await r.text()}}
-  catch{return null}finally{clearTimeout(timer)}
+  try{
+    const r=await fetch(url,{redirect:'follow',signal:c.signal,headers:{'user-agent':'Mozilla/5.0 AIHotel/1.0','accept':'text/html,application/xhtml+xml'}});
+    if(!r.ok)return null;
+    const html=await r.text();
+    const direct={url:r.url,html,rendered:false};
+    try{
+      const hostName=new URL(r.url).hostname.replace(/^www\./i,'');
+      const isHoteza=/(^|\.)hoteza\.app$/i.test(hostName);
+      const looksLikeShell=strip(html).length<1400;
+      if(isHoteza&&looksLikeShell){
+        const rendered=await fetchRenderedPage(r.url,Math.max(7000,ms));
+        if(rendered)return rendered;
+      }
+    }catch{}
+    return direct;
+  }catch{return null}finally{clearTimeout(timer)}
 }
 
 async function searchBing(q){
@@ -212,12 +250,26 @@ export default async function handler(req,res){
         .filter(u=>sameHost(u,host)))].slice(0,12);
       const roomPages=[...basePages,...(await Promise.all(linkedRoomUrls.map(u=>fetchPage(u,1800)))).filter(Boolean)]
         .filter((p,i,a)=>p&&a.findIndex(x=>x.url===p.url)===i);
-      const content=buildContent(roomPages,finalUrl,hotel);
-      const providerEvidence=[...new Set(roomPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).map(x=>x.href)).filter(x=>/hoteza\.app$/i.test(new URL(x).hostname||'')))].slice(0,10);
+
+      // Discover provider/menu URLs specifically from pages that mention room service.
+      const roomContextPages=roomPages.filter(p=>/room-service|in-room-dining|inroomdining/i.test(p.url||'')||/room service|in room dining|in-room dining/i.test(strip(p.html||'')));
+      const providerEvidence=[...new Set(roomContextPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).map(x=>x.href))
+        .filter(x=>{try{return /(^|\.)hoteza\.app$/i.test(new URL(x).hostname)}catch{return false}}))].slice(0,20);
+
+      // Hoteza pages are often a JavaScript shell. fetchPage() upgrades them to a rendered page.
+      const providerPages=(await Promise.all(providerEvidence.map(u=>fetchPage(u,8000)))).filter(Boolean)
+        .filter((p,i,a)=>p&&a.findIndex(x=>x.url===p.url)===i);
+
+      const allRoomPages=[...roomPages,...providerPages];
+      const content=buildContent(allRoomPages,finalUrl,hotel,{roomOnly:true});
       if(providerEvidence.length){
-        content.roomDining.ordering=Object.assign({},content.roomDining.ordering,{provider:'hoteza',providerEvidence,status:content.roomDining.items?.length?'provider-adapter-required':'catalog-source-required'});
+        content.roomDining.ordering=Object.assign({},content.roomDining.ordering,{
+          provider:'hoteza',
+          providerEvidence,
+          status:content.roomDining.items?.length?'provider-adapter-required':'catalog-source-required'
+        });
       }
-      return send(res,200,{hotel,content,crawl:{stage:'room-service',scanned:roomPages.length,sourcePages:roomPages.map(p=>p.url)},providerEvidence});
+      return send(res,200,{hotel,content,crawl:{stage:'room-service',scanned:allRoomPages.length,sourcePages:allRoomPages.map(p=>p.url)},providerEvidence});
     }
     if(b.mode==='deep'){
       if(!b.hotel||!b.hotel.host||!Array.isArray(b.urls))return send(res,400,{error:'hotel и urls обязательны'});
