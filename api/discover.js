@@ -91,7 +91,7 @@ export default async function handler(req,res){
     if(b.mode==='initial'){
       const seedPaths=['/hotel-overview/','/contact/','/contact-us/','/location/','/about-us/','/rooms-suites/','/rooms/','/dining/','/room-service/','/in-room-dining/','/inroomdining/','/menus/','/gallery/'];
       const seedUrls=[finalUrl,...seedPaths.map(p=>new URL(p,finalUrl).href)];
-      const pages=[first,...(await Promise.all([...new Set(seedUrls).filter(u=>u!==finalUrl).map(u=>fetchPage(u,1800))])).filter(Boolean)];
+      const pages=[first,...(await Promise.all([...new Set(seedUrls)].filter(u=>u!==finalUrl).map(u=>fetchPage(u,1800)))).filter(Boolean)];
       for(const p of pages){const j=findLd(p.html||''),v=visibleLocation(p.html||'');if(!hotel.name&&j?.name)hotel.name=j.name;if(!hotel.city&&j?.city)hotel.city=j.city;if(!hotel.country&&j?.country)hotel.country=j.country;if(!hotel.address&&j?.street)hotel.address=j.street;if(!hotel.city&&v[0]?.city)hotel.city=v[0].city;if(!hotel.country&&v[0]?.country)hotel.country=v[0].country;}
       if(!hotel.city||!hotel.country)return send(res,422,{error:'Не удалось определить город и страну автоматически.',hotel,debug:{title,homepageLocations:vl.slice(0,8)}});
       const content=buildContent(pages,finalUrl,hotel);
