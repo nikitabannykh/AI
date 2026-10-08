@@ -85,7 +85,7 @@ async function api(path,body){
 function saveCrawl(){localStorage.setItem('aihotel-crawl',JSON.stringify(S.crawl))}
 function mergeDiscoveredContent(next){
   if(!next)return;
-  const mergeArr=(a,b,key)=>{const out=[...(Array.isArray(a)?a:[])];const seen=new Set(out.map(key));for(const x of (Array.isArray(b)?b:[])){const k=key(x);if(!seen.has(k)){seen.add(k);out.push(x)}}return out};
+  const mergeArr=(a,b,key)=>{const out=[...(Array.isArray(a)?a:[])];const index=new Map(out.map((x,i)=>[key(x),i]));for(const x of (Array.isArray(b)?b:[])){const k=key(x),i=index.get(k);if(i===undefined){index.set(k,out.length);out.push(x)}else if(x&&typeof x==='object'&&out[i]&&typeof out[i]==='object'){for(const p of Object.keys(x)){const v=x[p];if(v!==undefined&&v!==null&&v!==''&&(!(p in out[i])||out[i][p]===''||out[i][p]===null||(Array.isArray(v)&&v.length&&!out[i][p]?.length)))out[i][p]=v}}}return out};
   const keys=['rooms','restaurants','menus'];
   for(const k of keys)S.content[k]=mergeArr(S.content[k],next[k],x=>slugLocal(x?.source||x?.name||JSON.stringify(x)));
   if(Array.isArray(next.images))S.content.images=mergeArr(S.content.images,next.images,x=>String(x?.url||x?.dataUrl||''));
@@ -98,7 +98,7 @@ function mergeDiscoveredContent(next){
   }
 }
 const slugLocal=x=>String(x??'').toLowerCase().normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-async function startDiscovery(url){
+async async function startDiscovery(url){
   const d=await api('/api/discover',{url,mode:'initial'});S.hotel=d.hotel;S.content=normalizeContent(mergeContent(S.content,d.content||{}));
   S.crawl={status:d.crawl?.done?'complete':'running',queue:Array.isArray(d.crawl?.queue)?d.crawl.queue:[],seen:[...(d.crawl?.sourcePages||[]),...(d.crawl?.queue||[])],scanned:Number(d.crawl?.scanned||0),found:Number(d.crawl?.found||0),startedAt:new Date().toISOString(),finishedAt:d.crawl?.done?new Date().toISOString():null};save();saveContent();saveCrawl();render();if(S.crawl.status==='running')continueDiscovery();
 }
@@ -326,6 +326,7 @@ const demandCsv=$('demandCsv');if(demandCsv)demandCsv.onchange=async()=>{const f
 const runCheck=$('runCheck');if(runCheck)runCheck.onclick=()=>alert(S.monitor.included>0&&S.monitor.used<S.monitor.included?'Проверка будет запущена после подключения AI provider. В demo-режиме запрос не выполняется.':'Лимит проверок исчерпан или тариф не настроен.');const toAnswers=$('toAnswers');if(toAnswers)toAnswers.onclick=()=>{S.tab='answers';render()}; if($('marketMapCanvas'))initMarketMaps();
 }
 render();
+if(S.hotel&&S.crawl.status==='running'&&S.crawl.queue?.length)setTimeout(continueDiscovery,120);
 
 </script>
 </body>
