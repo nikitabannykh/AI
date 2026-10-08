@@ -124,7 +124,7 @@ const buildContent=(pages,finalUrl,hotel,options={})=>{
     orderChannel:'',
     orderingNotes:'',
     categories:[...new Set(roomItems.map(x=>x.category).filter(Boolean))],
-    items:roomItems,
+    items:roomItems.map(x=>Object.assign({},x,{serviceType:'in_room_dining',catalog:'room_service'})),
     menuFormat:roomItems.length?'structured-text':'external/menu-link',
     sources:roomSources,
     photos:roomPhotos,
@@ -132,7 +132,7 @@ const buildContent=(pages,finalUrl,hotel,options={})=>{
       provider,
       status:provider==='hoteza'?'provider-adapter-required':roomItems.length?'catalog-ready':'source-required',
       catalogReady:roomItems.length>0,
-      canCreateOrder:false
+      canCreateOrder:false,orderEndpoint:'',adapterVersion:'1'
     }
   };
   const roomCandidates=pages.filter(p=>/room|suite/i.test(p.url||'')).map(p=>{
@@ -154,7 +154,7 @@ const buildContent=(pages,finalUrl,hotel,options={})=>{
     basics:{address:hotel.address||facts.addresses[0]||'',phone:facts.phones[0]||hotel.phone||'',email:facts.emails[0]||hotel.email||'',website:finalUrl,bookingUrl:facts.bookingUrls[0]||'',additionalEmails:facts.emails,additionalPhones:facts.phones,fax:facts.faxes[0]||'',checkIn:facts.checkIn||'',checkOut:facts.checkOut||''},
     rooms:roomCandidates,
     restaurants,
-    menus:menuItems.slice(0,500),
+    menus:menuItems.slice(0,500).map(x=>Object.assign({},x,{serviceType:x.serviceType||'restaurant',catalog:x.catalog||'restaurant'})),
     menuSources,
     images,
     roomDining,
