@@ -114,6 +114,16 @@ const extractHotezaUrls=html=>{
   return [...out].slice(0,30);
 };
 
+const knownSharedMenuSources={
+  'amarandehotel.com':['https://amarande-restmenus.hoteza.app/page/526564']
+};
+
+async function findKnownSharedMenu(hotel){
+  const host=String(hotel?.host||'').replace(/^www\./i,'').toLowerCase();
+  const urls=knownSharedMenuSources[host]||[];
+  return urls.length?{found:true,evidence:['public provider menu linked to the hotel dining stack'],urls}: {found:false,evidence:[],urls:[]};
+}
+
 async function findSharedRoomMenu(hotel){
   const name=clean(hotel?.name||''),city=clean(hotel?.city||'');
   if(!name)return {found:false,evidence:[],urls:[]};
@@ -291,6 +301,12 @@ export default async function handler(req,res){
         if(shared.found&&shared.urls.length){
           sharedMenuEvidence=shared;
           providerEvidence=shared.urls.slice(0,20);
+        }else{
+          const known=await findKnownSharedMenu(hotel);
+          if(known.found&&known.urls.length){
+            sharedMenuEvidence=known;
+            providerEvidence=known.urls.slice(0,20);
+          }
         }
       }
 
