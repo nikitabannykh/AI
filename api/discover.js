@@ -50,7 +50,7 @@ const meta=html=>{
   return out;
 };
 
-async function fetchPage(url,ms=4500){
+async function fetchPage(url,ms=2500){
   const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);
   try{const r=await fetch(url,{redirect:'follow',signal:c.signal,headers:{'user-agent':'Mozilla/5.0 AIHotel/1.0','accept':'text/html,application/xhtml+xml'}});if(!r.ok)return null;return{url:r.url,html:await r.text()}}
   catch{return null}finally{clearTimeout(timer)}
@@ -73,15 +73,19 @@ export default async function handler(req,res){
     if(!first)return send(res,502,{error:'Не удалось открыть официальный сайт. Проверьте URL.'});
     const html=first.html||'',finalUrl=first.url||url,md=meta(html),ld=findLd(html),vl=visibleLocation(html),title=strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'')||new URL(finalUrl).hostname,host=new URL(finalUrl).hostname.replace(/^www\./i,'');
     const hotel={name:ld?.name||md['og:site_name']||title.split('|')[0].split(' - ')[0].trim(),url:finalUrl,host,city:ld?.city||md.addresslocality||md['og:locality']||vl[0]?.city||null,country:ld?.country||toCountry(md.addresscountry||md['og:country-name'])||vl[0]?.country||null,stars:ld?.stars||null,rooms:ld?.rooms||null,address:ld?.street||''};
-    const seedPaths=['/hotel-overview/','/contact/','/contact-us/','/location/','/about-us/','/rooms-suites/','/rooms/','/dining/','/spa-fitness/','/offers/','/gallery/','/room-service/','/in-room-dining/','/inroomdining/','/menus/'];
+    // Fast first pass: profile pages are fetched in parallel with short per-page timeouts.
+    // The previous version crawled up to ~80 pages before responding, which could exceed the 12s browser timeout.
+    const seedPaths=['/hotel-overview/','/contact-us/','/contact/','/rooms-suites/','/rooms/','/dining/','/room-service/','/in-room-dining/','/inroomdining/','/menus/','/gallery/'];
     const seedUrls=[finalUrl,...seedPaths.map(p=>new URL(p,finalUrl).href)];
-    const directPages=await Promise.all(seedUrls.map(u=>fetchPage(u,3500)));
-    const linkedUrls=relevantLinks(extractLinks(html,finalUrl));
-    const linkedPages=await Promise.all(linkedUrls.map(u=>fetchPage(u,2800)));
-    const initialPages=[...directPages,...linkedPages].filter(Boolean);
-    const deeperLinks=[...new Set(initialPages.flatMap(p=>relevantLinks(extractLinks(p.html,p.url||finalUrl))))].slice(0,40);
-    const deeperPages=await Promise.all(deeperLinks.map(u=>fetchPage(u,2400)));
-    const pages=[...initialPages,...deeperPages].filter(Boolean);
+    const uniqueUrls=[...new Set(seedUrls)];
+    const directPages=(await Promise.all(uniqueUrls.map(u=>fetchPage(u,1800)))).filter(Boolean);
+    const linkedUrls=[...new Set(relevantLinks(extractLinks(html,finalUrl)))].slice(0,14).filter(u=>!uniqueUrls.includes(u));
+    const linkedPages=(await Promise.all(linkedUrls.map(u=>fetchPage(u,1800)))).filter(Boolean);
+    const initialPages=[...directPages,...linkedPages];
+    // One targeted second pass only for room / dining / menu links discovered in the first pass.
+    const deeperLinks=[...new Set(initialPages.flatMap(p=>relevantLinks(extractLinks(p.html,p.url||finalUrl))))].filter(u=>/room|suite|dining|restaurant|bar|menu|food|hoteza|in-room/i.test(u)).slice(0,10).filter(u=>!initialPages.some(p=>p.url===u));
+    const deeperPages=(await Promise.all(deeperLinks.map(u=>fetchPage(u,1600)))).filter(Boolean);
+    const pages=[...initialPages,...deeperPages];
     for(const p of pages){const j=findLd(p.html||''),v=visibleLocation(p.html||'');if(!hotel.name&&j?.name)hotel.name=j.name;if(!hotel.city&&j?.city)hotel.city=j.city;if(!hotel.country&&j?.country)hotel.country=j.country;if(!hotel.address&&j?.street)hotel.address=j.street;if(!hotel.city&&v[0]?.city)hotel.city=v[0].city;if(!hotel.country&&v[0]?.country)hotel.country=v[0].country;}
     const facts=extractFacts(pages,finalUrl);
     if(!hotel.address&&facts.addresses[0])hotel.address=facts.addresses[0];
