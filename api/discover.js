@@ -286,9 +286,12 @@ const buildContent=(pages,finalUrl,hotel,options={})=>{
 };
 
 export default async function handler(req,res){
-  if(req.method!=='POST')return send(res,405,{error:'POST only'});
+  if(req.method!=='POST'&&req.method!=='GET')return send(res,405,{error:'POST or GET only'});
   try{
-    const b=await readBody(req);if(!b||!b.url)return send(res,400,{error:'url required'});
+    const b=req.method==='GET'
+      ? {url:req.query?.url||'',mode:req.query?.mode||'room-service'}
+      : await readBody(req);
+    if(!b||!b.url)return send(res,400,{error:'url required'});
     let url=String(b.url).trim();if(!/^https?:\/\//i.test(url))url='https://'+url;
     const first=await fetchPage(url);
     if(!first)return send(res,502,{error:'Не удалось открыть официальный сайт. Проверьте URL.'});
