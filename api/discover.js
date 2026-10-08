@@ -180,18 +180,44 @@ export default async function handler(req,res){
       const content=buildContent(pages,finalUrl,hotel);
       const queue=[...new Set(pages.flatMap(p=>relevantLinks(extractLinks(p.html,p.url||finalUrl))).filter(u=>sameHost(u,host)&&u!==finalUrl))].slice(0,150);
       const roomMenuSet=new Set();
+      const rawUrlRe=/https?:\/\/[^"'\\s<>]+/gi;
       for(const p of pages){
-        const isRoomPage=/room-service|in-room-dining|inroomdining/i.test(p.url||'')||/room service|in room dining|in-room dining/i.test(strip(p.html||''));
-        if(!isRoomPage)continue;
-        for(const x of extractLinks(p.html,p.url||finalUrl)){
+        const raw=String(p.html||'');
+        const text=strip(raw);
+        const roomContext=/room-service|in-room-dining|inroomdining|room service|in room dining|in-room dining/i.test((p.url||'')+' '+text);
+        if(!roomContext)continue;
+        const candidates=[
+          ...extractLinks(raw,p.url||finalUrl).map(x=>({href:x.href,label:x.label||''})),
+          ...[...raw.matchAll(rawUrlRe)].map(m=>({href:absolutize(m[0],p.url||finalUrl),label:''}))
+        ];
+        for(const x of candidates){
           const target=x.href||'';
           if(!/^https?:/i.test(target))continue;
-          if(!/menu|order|food|dining/i.test((x.label||'')+' '+target))continue;
-          if(sameHost(target,host)||/hoteza\.app/i.test(target))roomMenuSet.add(target);
+          if(!/menu|order|food|dining|hoteza/i.test((x.label||'')+' '+target))continue;
+          if(sameHost(target,host)||/\.hoteza\.app$/i.test(new URL(target).hostname||''))roomMenuSet.add(target);
         }
       }
-      const roomMenuQueue=[...roomMenuSet].slice(0,40);
+      const roomMenuQueue=[...roomMenuSet].slice(0,60);
       return send(res,200,{hotel,content,crawl:{stage:'initial',done:queue.length===0&&roomMenuQueue.length===0,queue,roomMenuQueue,scanned:pages.length,found:queue.length+roomMenuQueue.length,sourcePages:pages.map(p=>p.url)}});
+    }
+    if(b.mode==='room-service'){
+      // Lightweight refresh for the dedicated In-room dining section.
+      // The official hotel site may expose the service and hours while the actual
+      // order catalog lives inside a guest-journey provider (e.g. Hoteza).
+      const seedPaths=['/hotel-overview/','/rooms-suites/','/rooms/','/dining/','/room-service/','/in-room-dining/','/inroomdining/'];
+      const basePages=[first,...(await Promise.all([...new Set(seedPaths.map(p=>new URL(p,finalUrl).href))].map(u=>fetchPage(u,1800)))).filter(Boolean)];
+      const linkedRoomUrls=[...new Set(basePages.flatMap(p=>extractLinks(p.html,p.url||finalUrl))
+        .filter(x=>/room|suite/i.test((x.label||'')+' '+x.href))
+        .map(x=>x.href)
+        .filter(u=>sameHost(u,host)))].slice(0,12);
+      const roomPages=[...basePages,...(await Promise.all(linkedRoomUrls.map(u=>fetchPage(u,1800)))).filter(Boolean)]
+        .filter((p,i,a)=>p&&a.findIndex(x=>x.url===p.url)===i);
+      const content=buildContent(roomPages,finalUrl,hotel);
+      const providerEvidence=[...new Set(roomPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).map(x=>x.href)).filter(x=>/hoteza\.app$/i.test(new URL(x).hostname||'')))].slice(0,10);
+      if(providerEvidence.length){
+        content.roomDining.ordering=Object.assign({},content.roomDining.ordering,{provider:'hoteza',providerEvidence,status:content.roomDining.items?.length?'provider-adapter-required':'catalog-source-required'});
+      }
+      return send(res,200,{hotel,content,crawl:{stage:'room-service',scanned:roomPages.length,sourcePages:roomPages.map(p=>p.url)},providerEvidence});
     }
     if(b.mode==='deep'){
       if(!b.hotel||!b.hotel.host||!Array.isArray(b.urls))return send(res,400,{error:'hotel и urls обязательны'});
