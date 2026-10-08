@@ -293,6 +293,10 @@ export default async function handler(req,res){
       : await readBody(req);
     if(!b||!b.url)return send(res,400,{error:'url required'});
     let url=String(b.url).trim();if(!/^https?:\/\//i.test(url))url='https://'+url;
+    if(b.mode==='provider-test'){
+      const p=await fetchPage(url,9000,{forceRender:true});
+      return send(res,200,{ok:!!p,url:p?.url||url,rendered:!!p?.rendered,htmlLength:p?.html?.length||0,textLength:strip(p?.html||'').length,head:(p?.html||'').slice(0,4000)});
+    }
     const first=await fetchPage(url);
     if(!first)return send(res,502,{error:'Не удалось открыть официальный сайт. Проверьте URL.'});
     const html=first.html||'',finalUrl=first.url||url,md=meta(html),ld=findLd(html),vl=visibleLocation(html),title=strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'')||new URL(finalUrl).hostname,host=new URL(finalUrl).hostname.replace(/^www\./i,'');
