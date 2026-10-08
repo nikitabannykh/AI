@@ -230,7 +230,7 @@ async function refreshRoomDining(){
 }
 function needsRoomDiningRefresh(){
   const r=S.content?.roomDining||{};
-  return !r.hours&&!r.lateSnacks&&!r.items?.length&&!r.sources?.length;
+  return !Array.isArray(r.items)||!r.items.length;
 }
 function crawlBanner(){
   if(!S.hotel)return '';
@@ -447,11 +447,12 @@ const orderCsv=$('orderCsv');if(orderCsv)orderCsv.onchange=async()=>{const f=ord
 const runCheck=$('runCheck');if(runCheck)runCheck.onclick=()=>alert(S.monitor.included>0&&S.monitor.used<S.monitor.included?'Проверка будет запущена после подключения AI provider. В demo-режиме запрос не выполняется.':'Лимит проверок исчерпан или тариф не настроен.');const toAnswers=$('toAnswers');if(toAnswers)toAnswers.onclick=()=>{S.tab='answers';render()}; if($('marketMapCanvas'))initMarketMaps();
 }
 render();
-if(S.hotel&&needsRoomDiningRefresh()&&!sessionStorage.getItem('aihotel-room-refresh')){
-  sessionStorage.setItem('aihotel-room-refresh','1');
+const ridRefreshKey='aihotel-room-refresh-v2';
+if(S.hotel&&needsRoomDiningRefresh()&&!sessionStorage.getItem(ridRefreshKey)){
+  sessionStorage.setItem(ridRefreshKey,'1');
   setTimeout(refreshRoomDining,250);
 }
-if(S.hotel&&S.crawl.status==='running'&&S.crawl.queue?.length)setTimeout(continueDiscovery,120);
+if(S.hotel&&S.crawl.status==='running'&&((S.crawl.queue?.length)||(S.crawl.roomMenuQueue?.length)))setTimeout(continueDiscovery,120);
 
 </script>
 </body>
