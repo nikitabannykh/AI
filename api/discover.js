@@ -88,6 +88,24 @@ export default async function handler(req,res){
     if(!first)return send(res,502,{error:'Не удалось открыть официальный сайт. Проверьте URL.'});
     const html=first.html||'',finalUrl=first.url||url,md=meta(html),ld=findLd(html),vl=visibleLocation(html),title=strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'')||new URL(finalUrl).hostname,host=new URL(finalUrl).hostname.replace(/^www\./i,'');
     const hotel={name:ld?.name||md['og:site_name']||title.split('|')[0].split(' - ')[0].trim(),url:finalUrl,host,city:ld?.city||md.addresslocality||md['og:locality']||vl[0]?.city||null,country:ld?.country||toCountry(md.addresscountry||md['og:country-name'])||vl[0]?.country||null,stars:ld?.stars||null,rooms:ld?.rooms||null,address:ld?.street||''};
+    if(b.mode==='initial'){
+      const seedPaths=['/hotel-overview/','/contact/','/contact-us/','/location/','/about-us/','/rooms-suites/','/rooms/','/dining/','/room-service/','/in-room-dining/','/inroomdining/','/menus/','/gallery/'];
+      const seedUrls=[finalUrl,...seedPaths.map(p=>new URL(p,finalUrl).href)];
+      const pages=[first,...(await Promise.all([...new Set(seedUrls).filter(u=>u!==finalUrl).map(u=>fetchPage(u,1800))])).filter(Boolean)];
+      for(const p of pages){const j=findLd(p.html||''),v=visibleLocation(p.html||'');if(!hotel.name&&j?.name)hotel.name=j.name;if(!hotel.city&&j?.city)hotel.city=j.city;if(!hotel.country&&j?.country)hotel.country=j.country;if(!hotel.address&&j?.street)hotel.address=j.street;if(!hotel.city&&v[0]?.city)hotel.city=v[0].city;if(!hotel.country&&v[0]?.country)hotel.country=v[0].country;}
+      if(!hotel.city||!hotel.country)return send(res,422,{error:'Не удалось определить город и страну автоматически.',hotel,debug:{title,homepageLocations:vl.slice(0,8)}});
+      const content=buildContent(pages,finalUrl,hotel);
+      const queue=[...new Set(pages.flatMap(p=>relevantLinks(extractLinks(p.html,p.url||finalUrl))).filter(u=>sameHost(u,host)&&u!==finalUrl))].slice(0,150);
+      return send(res,200,{hotel,content,crawl:{stage:'initial',done:queue.length===0,queue,scanned:pages.length,found:queue.length,sourcePages:pages.map(p=>p.url)}});
+    }
+    if(b.mode==='deep'){
+      if(!b.hotel||!b.hotel.host||!Array.isArray(b.urls))return send(res,400,{error:'hotel и urls обязательны'});
+      const urls=[...new Set(b.urls.map(String).filter(u=>sameHost(u,b.hotel.host)))].slice(0,12);
+      const pages=(await Promise.all(urls.map(u=>fetchPage(u,2000)))).filter(Boolean);
+      const content=buildContent(pages,finalUrl,b.hotel);
+      const next=[...new Set(pages.flatMap(p=>relevantLinks(extractLinks(p.html,p.url||finalUrl))).filter(u=>sameHost(u,b.hotel.host)&&u!==finalUrl))].slice(0,150);
+      return send(res,200,{hotel:b.hotel,content,crawl:{stage:'deep',done:next.length===0,queue:next,scanned:pages.length,found:next.length,sourcePages:pages.map(p=>p.url)}});
+    }
     // Fast first pass: profile pages are fetched in parallel with short per-page timeouts.
     // The previous version crawled up to ~80 pages before responding, which could exceed the 12s browser timeout.
     const seedPaths=['/hotel-overview/','/contact-us/','/contact/','/rooms-suites/','/rooms/','/dining/','/room-service/','/in-room-dining/','/inroomdining/','/menus/','/gallery/'];
