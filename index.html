@@ -98,7 +98,7 @@ function mergeDiscoveredContent(next){
   }
 }
 const slugLocal=x=>String(x??'').toLowerCase().normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-async async function startDiscovery(url){
+async function startDiscovery(url){
   const d=await api('/api/discover',{url,mode:'initial'});S.hotel=d.hotel;S.content=normalizeContent(mergeContent(S.content,d.content||{}));
   S.crawl={status:d.crawl?.done?'complete':'running',queue:Array.isArray(d.crawl?.queue)?d.crawl.queue:[],seen:[...(d.crawl?.sourcePages||[]),...(d.crawl?.queue||[])],scanned:Number(d.crawl?.scanned||0),found:Number(d.crawl?.found||0),startedAt:new Date().toISOString(),finishedAt:d.crawl?.done?new Date().toISOString():null};save();saveContent();saveCrawl();render();if(S.crawl.status==='running')continueDiscovery();
 }
