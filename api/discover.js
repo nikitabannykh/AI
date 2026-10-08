@@ -179,7 +179,18 @@ export default async function handler(req,res){
       if(!hotel.city||!hotel.country)return send(res,422,{error:'Не удалось определить город и страну автоматически.',hotel,debug:{title,homepageLocations:vl.slice(0,8)}});
       const content=buildContent(pages,finalUrl,hotel);
       const queue=[...new Set(pages.flatMap(p=>relevantLinks(extractLinks(p.html,p.url||finalUrl))).filter(u=>sameHost(u,host)&&u!==finalUrl))].slice(0,150);
-      const roomMenuQueue=[...new Set(pages.filter(p=>/room-service|in-room-dining|inroomdining/i.test(p.url||'')||/room service|in room dining|in-room dining/i.test(strip(p.html||''))).flatMap(p=>extractLinks(p.html,p.url||finalUrl)).filter(x=>/menu|order|food|dining/i.test((x.label||'')+' '+x.href)).map(x=>x.href).filter(u=>/^https?:/i.test(u)&&(!sameHost(u,host)||/menu|room|order|dining/i.test(u)) && (/hoteza\\.app/i.test(u)||sameHost(u,host)))]).slice(0,40);
+      const roomMenuSet=new Set();
+      for(const p of pages){
+        const isRoomPage=/room-service|in-room-dining|inroomdining/i.test(p.url||'')||/room service|in room dining|in-room dining/i.test(strip(p.html||''));
+        if(!isRoomPage)continue;
+        for(const x of extractLinks(p.html,p.url||finalUrl)){
+          const target=x.href||'';
+          if(!/^https?:/i.test(target))continue;
+          if(!/menu|order|food|dining/i.test((x.label||'')+' '+target))continue;
+          if(sameHost(target,host)||/hoteza\.app/i.test(target))roomMenuSet.add(target);
+        }
+      }
+      const roomMenuQueue=[...roomMenuSet].slice(0,40);
       return send(res,200,{hotel,content,crawl:{stage:'initial',done:queue.length===0&&roomMenuQueue.length===0,queue,roomMenuQueue,scanned:pages.length,found:queue.length+roomMenuQueue.length,sourcePages:pages.map(p=>p.url)}});
     }
     if(b.mode==='deep'){
