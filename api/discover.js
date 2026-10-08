@@ -40,7 +40,45 @@ const extractAddresses=(html,text)=>{const src=strip(String(html||'')+' '+String
 const extractLinks=(html,base)=>{const out=[],re=/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;let m;while((m=re.exec(html||''))){const href=absolutize(m[1],base);if(href)out.push({href,label:strip(m[2])})}return out};
 const extractImages=(html,base)=>{const out=[],seen=new Set();const add=(src,alt)=>{const href=absolutize(src,base);if(!href||seen.has(href)||!/^https?:/i.test(href))return;seen.add(href);out.push({url:href,alt:clean(alt)})};const og=String(html||'').matchAll(/<meta\b[^>]*(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*content=["']([^"']+)["']/gi);for(const m of og)add(m[1],'');const re=/<img\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi;let m;while((m=re.exec(html||''))){const tag=m[0],alt=(tag.match(/alt=["']([^"']*)["']/i)||[])[1]||'';add(m[1],alt)}return out.slice(0,30)};
 const extractLdObjects=html=>{const out=[];const re=/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;let m;while((m=re.exec(html||''))){try{const x=JSON.parse(m[1]),arr=Array.isArray(x)?x:(x&&Array.isArray(x['@graph'])?x['@graph']:[x]);for(const item of arr)if(item&&typeof item==='object')out.push(item)}catch{}}return out};
-const parseTextMenu=(pages)=>{const out=[];for(const p of pages){const u=p.url||'';const source=strip(p.html||'');if(!/menu|dining|restaurant|hoteza/i.test(u+' '+source))continue;const parts=source.split(/\s{2,}|(?=\b\d{1,3}(?:[.,]\d{1,2})?\s*(?:€|EUR)\b)/i);for(const part of parts){const m=part.match(/^(.*?)[\s]+(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\b/i);if(!m)continue;const name=clean(m[1]);if(name.length<3||name.length>140||/^(view|download|book|menu)$/i.test(name))continue;out.push({name,description:'',price:m[2].replace(',','.')+' €',currency:'EUR',category:'',source:p.url,photos:extractImages(p.html,p.url).map(x=>x.url).slice(0,3),status:'needs-review'})}}const seen=new Set(),dedup=[];for(const x of out){const k=slug(x.name)+'|'+slug(x.price)+'|'+slug(x.source);if(!seen.has(k)){seen.add(k);dedup.push(x)}}return dedup.slice(0,500)};
+const parseTextMenu=(pages)=>{
+  const out=[];
+  const money=/(?:€|EUR|£|GBP|\$|USD|CHF|CZK|Kč|AED|QAR|SAR|TRY|₺)\s*\d{1,4}(?:[.,]\d{1,2})?|\d{1,4}(?:[.,]\d{1,2})?\s*(?:€|EUR|£|GBP|\$|USD|CHF|CZK|Kč|AED|QAR|SAR|TRY|₺)/gi;
+  for(const p of pages){
+    const u=p.url||'',source=strip(p.html||'');
+    if(!/menu|dining|restaurant|bar|food|drink|hoteza|room[- ]service|in[- ]room/i.test(u+' '+source))continue;
+    const hits=[...source.matchAll(money)];
+    for(let i=0;i<hits.length;i++){
+      const hit=hits[i],price=clean(hit[0]),before=source.slice(Math.max(0,(hit.index||0)-220),hit.index||0);
+      let name=clean(before.replace(/\s+/g,' '));
+      name=name.split(/[|•·›»]/).pop().trim();
+      name=name.replace(/^(menu|food menu|drinks menu|a la carte|room service|in-room dining)[:\-\s]*/i,'').trim();
+      const bits=name.split(/(?=\b(?:[A-Z][A-Za-z'&()/-]{2,}|[A-Z]{2,})\b)/);
+      if(bits.length>1&&bits[bits.length-1].length>=3)name=bits[bits.length-1].trim();
+      if(name.length<3||name.length>120||/^(view|download|book|menu|menus|restaurant|bar|food|drink|page)$/i.test(name))continue;
+      const after=clean(source.slice((hit.index||0)+price.length,(hit.index||0)+price.length+240));
+      const description=after.split(money)[0].trim().slice(0,220);
+      const normalizedPrice=price.replace(/\s+/g,' ');
+      let currency='';
+      if(/€/i.test(price)||/\bEUR\b/i.test(price))currency='EUR';
+      else if(/£/i.test(price)||/\bGBP\b/i.test(price))currency='GBP';
+      else if(/\$/i.test(price)||/\bUSD\b/i.test(price))currency='USD';
+      else if(/CHF/i.test(price))currency='CHF';
+      else if(/CZK|Kč/i.test(price))currency='CZK';
+      else if(/AED/i.test(price))currency='AED';
+      else if(/QAR/i.test(price))currency='QAR';
+      else if(/SAR/i.test(price))currency='SAR';
+      else if(/TRY|₺/i.test(price))currency='TRY';
+      out.push({name,description,price:normalizedPrice,currency,category:'',source:u,photos:extractImages(p.html,u).map(x=>x.url).slice(0,3),status:'needs-review'});
+    }
+  }
+  const seen=new Set(),dedup=[];
+  for(const x of out){
+    const k=slug(x.name)+'|'+slug(x.price)+'|'+slug(x.source);
+    if(!seen.has(k)){seen.add(k);dedup.push(x)}
+  }
+  return dedup.slice(0,500);
+};
+
 const parseMenuObjects=(pages)=>{const out=[],sources=[];for(const p of pages){const html=p.html||'',lds=extractLdObjects(html);for(const x of lds){const types=Array.isArray(x['@type'])?x['@type']:[x['@type']];if(types.includes('MenuItem')||types.includes('Recipe')||x.offers?.price||x.price){const offer=x.offers&&typeof x.offers==='object'?x.offers:{};out.push({name:clean(x.name),description:clean(x.description),price:offer.price||x.price||'',currency:offer.priceCurrency||x.currency||'',category:clean(x.menuCategory||x.category),image:typeof x.image==='string'?x.image:(Array.isArray(x.image)?x.image[0]||'':''),source:p.url})}}for(const x of extractLinks(html,p.url||'')){if(/menu|food|dining/i.test((x.label||'')+' '+x.href)||/\.pdf(?:$|\?)/i.test(x.href))sources.push(x.href)}}return{items:[...new Map(out.filter(x=>x.name).map(x=>[x.name+'|'+x.source,x])).values()].slice(0,500),sources:[...new Set(sources)].slice(0,30)}};
 const relevantLinks=(links)=>{const keys=/contact|overview|room|suite|dining|restaurant|bar|menu|spa|fitness|wellness|facilit|service|location|offer|experience|gallery|pool|beach|breakfast|food|drink|meeting|event|in[- ]room/i;const seen=new Set(),out=[];for(const x of links){if(!x.href)continue;const u=x.href.split('#')[0];if(seen.has(u)||!keys.test((x.label||'')+' '+u))continue;seen.add(u);out.push(u);if(out.length>=30)break}return out};
 const extractBookingUrls=(pages,base)=>[...new Set(pages.flatMap(p=>extractLinks(p.html,p.url||base).filter(x=>/book|reserve|reservation/i.test((x.label||'')+' '+x.href)).map(x=>x.href)))].slice(0,8);
