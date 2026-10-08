@@ -67,24 +67,99 @@ async function searchDdg(q){
 const searchText=html=>{const a=[];const r1=/<li[^>]*class=["']b_algo["'][^>]*>([\s\S]*?)<\/li>/gi;let m;while((m=r1.exec(html))&&a.length<8)a.push(strip(m[1]));const r2=/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;while((m=r2.exec(html))&&a.length<8)a.push(strip(m[1]));return a.join(' ')};
 const buildContent=(pages,finalUrl,hotel,options={})=>{
   const facts=extractFacts(pages,finalUrl);
-  const menuStructured=parseMenuObjects(pages),menuText=parseTextMenu(pages),menuItems=[],seenMenu=new Set();
-  for(const item of [...menuStructured.items,...menuText]){const key=slug(item.name)+'|'+slug(item.price)+'|'+slug(item.source);if(!seenMenu.has(key)){seenMenu.add(key);menuItems.push(item)}}
-  const menuSources=[...new Set([...(menuStructured.sources||[]),...pages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).filter(x=>/menu|food|dining/i.test((x.label||'')+' '+x.href)).map(x=>x.href))])].slice(0,100);
+  const menuStructured=parseMenuObjects(pages);
+  const menuText=parseTextMenu(pages);
+  const menuItems=[];
+  const seenMenu=new Set();
+  for(const item of [...menuStructured.items,...menuText]){
+    const k=slug(item.name)+'|'+slug(item.price)+'|'+slug(item.source);
+    if(!seenMenu.has(k)){seenMenu.add(k);menuItems.push(item)}
+  }
+  const menuSourceSet=new Set(menuStructured.sources||[]);
+  for(const p of pages){
+    for(const x of extractLinks(p.html,p.url||finalUrl)){
+      if(/menu|food|dining|order/i.test((x.label||'')+' '+x.href))menuSourceSet.add(x.href);
+    }
+  }
+  const menuSources=[...menuSourceSet].slice(0,100);
   const images=[...new Map(pages.flatMap(p=>extractImages(p.html,p.url||finalUrl)).map(x=>[x.url,x])).values()].slice(0,120);
-  const roomCandidates=pages.filter(p=>/room|suite/i.test(p.url||'')).map(p=>{const j=findLd(p.html||'')||{},text=strip(p.html||''),title=clean((p.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)||[])[1]||''),name=clean(j.name||title),area=(text.match(/(\d{2,3})\s*(?:m2|m²|m\\xB2)/i)||[])[1]||'',guests=(text.match(/accommodate\s+(?:up to\s+)?(\d+)\s+(?:guests?|adults?)/i)||[])[1]||'';return name?{name,type:/suite/i.test(name)?'Suite':'Room',area,guests,view:/sea view/i.test(name+' '+text)?'Sea view':/inland view/i.test(name+' '+text)?'Inland view':'',amenities:'',description:clean(text.slice(0,700)),source:p.url,photos:extractImages(p.html,p.url).map(x=>x.url).slice(0,12),status:'needs-review'}:null}).filter(Boolean);
-  const restaurants=pages.filter(p=>/restaurant|dining|bar|azure|ezra|aleria|takis/i.test((p.url||'')+' '+strip(p.html||''))).map(p=>{const j=findLd(p.html||'')||{},title=clean((p.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)||[])[1]||''),name=clean(j.name||title);return name?{name,type:/bar/i.test(name)?'Bar':'Restaurant',cuisine:/mediterranean/i.test(strip(p.html||''))?'Mediterranean':'',description:clean(strip(p.html||'').slice(0,700)),source:p.url,photos:extractImages(p.html,p.url).map(x=>x.url).slice(0,12),status:'needs-review'}:null}).filter(x=>x&&x.name);
-  const roomServicePage=pages.find(p=>/room-service|in-room-dining|inroomdining/i.test(p.url||''))||pages.find(p=>/room service|in room dining|in-room dining/i.test(strip(p.html||'')));
-  const rsText=roomServicePage?strip(roomServicePage.html||''):'';
   const roomPages=pages.filter(p=>/room-service|in-room-dining|inroomdining/i.test(p.url||'')||/room service|in room dining|in-room dining/i.test(strip(p.html||'')));
-  const explicitRoomItems=options.roomOnly?menuItems:(roomPages.length?[...parseMenuObjects(roomPages).items,...parseTextMenu(roomPages)]:[]);
-  const roomItems=[];const roomSeen=new Set();
-  for(const item of explicitRoomItems){const key=slug(item.name)+'|'+slug(item.price)+'|'+slug(item.source);if(!roomSeen.has(key)){roomSeen.add(key);roomItems.push(item)}}
-  const roomSources=[...new Set(roomPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).filter(x=>/menu|food|dining|order/i.test((x.label||'')+' '+x.href)).map(x=>x.href)).concat(options.roomOnly?pages.map(p=>p.url):[]))];
+  const roomItems=[];
+  if(options.roomOnly){
+    for(const item of menuItems)roomItems.push(item);
+  }else if(roomPages.length){
+    const x=parseMenuObjects(roomPages).items.concat(parseTextMenu(roomPages));
+    const seen=new Set();
+    for(const item of x){
+      const k=slug(item.name)+'|'+slug(item.price)+'|'+slug(item.source);
+      if(!seen.has(k)){seen.add(k);roomItems.push(item)}
+    }
+  }
+  const roomSourceSet=new Set();
+  for(const p of roomPages){
+    for(const x of extractLinks(p.html,p.url||finalUrl)){
+      if(/menu|food|dining|order/i.test((x.label||'')+' '+x.href))roomSourceSet.add(x.href);
+    }
+  }
+  if(options.roomOnly){
+    for(const p of pages)if(p.url)roomSourceSet.add(p.url);
+  }
+  const roomSources=[...roomSourceSet].slice(0,100);
   const provider=roomSources.some(x=>/hoteza\.app/i.test(x))?'hoteza':(roomSources.length?'external-menu':'none');
-  const roomHours=(rsText.match(/Room Service\s*[:\-]?\s*(\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2})/i)||[])[1]||'';
-  const roomLate=(rsText.match(/Late snacks?\s*[:\-]?\s*(\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2})/i)||[])[1]||'';
-  const roomDining={enabled:roomPages.length>0||roomItems.length>0,hours:roomHours,lateSnacks:roomLate,orderUrl:roomSources.find(x=>/order|room|inroom|dining/i.test(x))||'',deliveryFee:'',minimumOrder:'',leadTime:'',payment:'',serviceArea:'All guest rooms',cutoffTime:'',orderChannel:'',orderingNotes:'',categories:[...new Set(roomItems.map(x=>x.category).filter(Boolean))],items:roomItems,menuFormat:roomItems.length?'structured-text':'external/menu-link',sources:roomSources.slice(0,100),photos:[...new Set(roomPages.flatMap(p=>extractImages(p.html,p.url).map(x=>x.url)))].slice(0,20),ordering:{provider,status:provider==='hoteza'?'provider-adapter-required':roomItems.length?'catalog-ready':'source-required',catalogReady:roomItems.length>0,canCreateOrder:false}};
-  return {basics:{address:hotel.address||facts.addresses[0]||'',phone:facts.phones[0]||hotel.phone||'',email:facts.emails[0]||hotel.email||'',website:finalUrl,bookingUrl:facts.bookingUrls[0]||'',additionalEmails:facts.emails,additionalPhones:facts.phones,fax:facts.faxes[0]||'',checkIn:facts.checkIn||'',checkOut:facts.checkOut||''},rooms:roomCandidates,restaurants,menus:menuItems.slice(0,500),menuSources,images,roomDining,sources:{pagesScanned:facts.pagesScanned}};
+  const roomText=roomPages.map(p=>strip(p.html||'')).join(' ');
+  const roomHours=(roomText.match(/Room Service\s*[:\-]?\s*(\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2})/i)||[])[1]||'';
+  const roomLate=(roomText.match(/Late snacks?\s*[:\-]?\s*(\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2})/i)||[])[1]||'';
+  const roomPhotos=[...new Set(roomPages.flatMap(p=>extractImages(p.html,p.url).map(x=>x.url)))].slice(0,20);
+  const roomDining={
+    enabled:roomPages.length>0||roomItems.length>0,
+    hours:roomHours,
+    lateSnacks:roomLate,
+    orderUrl:roomSources.find(x=>/order|room|inroom|dining/i.test(x))||'',
+    deliveryFee:'',
+    minimumOrder:'',
+    leadTime:'',
+    payment:'',
+    serviceArea:'All guest rooms',
+    cutoffTime:'',
+    orderChannel:'',
+    orderingNotes:'',
+    categories:[...new Set(roomItems.map(x=>x.category).filter(Boolean))],
+    items:roomItems,
+    menuFormat:roomItems.length?'structured-text':'external/menu-link',
+    sources:roomSources,
+    photos:roomPhotos,
+    ordering:{
+      provider,
+      status:provider==='hoteza'?'provider-adapter-required':roomItems.length?'catalog-ready':'source-required',
+      catalogReady:roomItems.length>0,
+      canCreateOrder:false
+    }
+  };
+  const roomCandidates=pages.filter(p=>/room|suite/i.test(p.url||'')).map(p=>{
+    const j=findLd(p.html||'')||{};
+    const text=strip(p.html||'');
+    const title=clean((p.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)||[])[1]||'');
+    const name=clean(j.name||title);
+    const area=(text.match(/(\d{2,3})\s*(?:m2|m²|m\\xB2)/i)||[])[1]||'';
+    const guests=(text.match(/accommodate\s+(?:up to\s+)?(\d+)\s+(?:guests?|adults?)/i)||[])[1]||'';
+    return name?{name,type:/suite/i.test(name)?'Suite':'Room',area,guests,view:/sea view/i.test(name+' '+text)?'Sea view':/inland view/i.test(name+' '+text)?'Inland view':'',amenities:'',description:clean(text.slice(0,700)),source:p.url,photos:extractImages(p.html,p.url).map(x=>x.url).slice(0,12),status:'needs-review'}:null;
+  }).filter(Boolean);
+  const restaurants=pages.filter(p=>/restaurant|dining|bar|azure|ezra|aleria|takis/i.test((p.url||'')+' '+strip(p.html||''))).map(p=>{
+    const j=findLd(p.html||'')||{};
+    const title=clean((p.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)||[])[1]||'');
+    const name=clean(j.name||title);
+    return name?{name,type:/bar/i.test(name)?'Bar':'Restaurant',cuisine:/mediterranean/i.test(strip(p.html||''))?'Mediterranean':'',description:clean(strip(p.html||'').slice(0,700)),source:p.url,photos:extractImages(p.html,p.url).map(x=>x.url).slice(0,12),status:'needs-review'}:null;
+  }).filter(x=>x&&x.name);
+  return {
+    basics:{address:hotel.address||facts.addresses[0]||'',phone:facts.phones[0]||hotel.phone||'',email:facts.emails[0]||hotel.email||'',website:finalUrl,bookingUrl:facts.bookingUrls[0]||'',additionalEmails:facts.emails,additionalPhones:facts.phones,fax:facts.faxes[0]||'',checkIn:facts.checkIn||'',checkOut:facts.checkOut||''},
+    rooms:roomCandidates,
+    restaurants,
+    menus:menuItems.slice(0,500),
+    menuSources,
+    images,
+    roomDining,
+    sources:{pagesScanned:facts.pagesScanned}
+  };
 };
 
 export default async function handler(req,res){
