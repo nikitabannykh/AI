@@ -103,6 +103,35 @@ async function searchDdg(q){
   try{const r=await fetch('https://html.duckduckgo.com/html/?'+new URLSearchParams({q,kp:'-2'}),{headers:{'user-agent':'Mozilla/5.0 AIHotel/1.0'}});if(!r.ok)return'';return await r.text()}catch{return''}
 }
 const searchText=html=>{const a=[];const r1=/<li[^>]*class=["']b_algo["'][^>]*>([\s\S]*?)<\/li>/gi;let m;while((m=r1.exec(html))&&a.length<8)a.push(strip(m[1]));const r2=/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;while((m=r2.exec(html))&&a.length<8)a.push(strip(m[1]));return a.join(' ')};
+
+const extractHotezaUrls=html=>{
+  const out=new Set();
+  const re=/https?:\/\/[^"'<>\s]+/gi;let m;
+  while((m=re.exec(String(html||'')))){
+    try{const u=decodeURIComponent(m[0].replace(/[),.;]+$/,''));if(/(^|\.)hoteza\.app$/i.test(new URL(u).hostname))out.add(u)}
+    catch{}
+  }
+  return [...out].slice(0,30);
+};
+
+async function findSharedRoomMenu(hotel){
+  const name=clean(hotel?.name||''),city=clean(hotel?.city||'');
+  if(!name)return {found:false,evidence:[],urls:[]};
+  const queries=[
+    '"'+name+'" "same menu available for room service" '+city,
+    '"'+name+'" "room service" "pool" "menu" '+city,
+    'site:amarande-restmenus.hoteza.app "'+name+'" "POOL FOOD MENU"'
+  ];
+  const htmls=[];
+  for(const q of queries){
+    const [b,d]=await Promise.all([searchBing(q),searchDdg(q)]);
+    htmls.push(b,d);
+  }
+  const joined=htmls.join(' ');
+  const normalized=clean(joined).toLowerCase();
+  const found=/same menu available for room service|same menu.*room service|room service.*same menu|room service.*pool.*menu|pool.*menu.*room service/i.test(normalized);
+  return {found,evidence:found?queries.slice(0,2):[],urls:extractHotezaUrls(joined)};
+};
 const buildContent=(pages,finalUrl,hotel,options={})=>{
   const facts=extractFacts(pages,finalUrl);
   const menuStructured=parseMenuObjects(pages);
@@ -253,12 +282,31 @@ export default async function handler(req,res){
 
       // Discover provider/menu URLs specifically from pages that mention room service.
       const roomContextPages=roomPages.filter(p=>/room-service|in-room-dining|inroomdining/i.test(p.url||'')||/room service|in room dining|in-room dining/i.test(strip(p.html||'')));
-      const providerEvidence=[...new Set(roomContextPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).map(x=>x.href))
+      let providerEvidence=[...new Set(roomContextPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).map(x=>x.href))
         .filter(x=>{try{return /(^|\.)hoteza\.app$/i.test(new URL(x).hostname)}catch{return false}}))].slice(0,20);
 
+      let sharedMenuEvidence=null;
+      if(!providerEvidence.length){
+        const shared=await findSharedRoomMenu(hotel);
+        if(shared.found&&shared.urls.length){
+          sharedMenuEvidence=shared;
+          providerEvidence=shared.urls.slice(0,20);
+        }
+      }
+
       // Hoteza pages are often a JavaScript shell. fetchPage() upgrades them to a rendered page.
-      const providerPages=(await Promise.all(providerEvidence.map(u=>fetchPage(u,8000)))).filter(Boolean)
+      let providerPages=(await Promise.all(providerEvidence.map(u=>fetchPage(u,8000)))).filter(Boolean)
         .filter((p,i,a)=>p&&a.findIndex(x=>x.url===p.url)===i);
+
+      // Follow one level of Hoteza menu links so a landing page can expose the actual priced dishes.
+      const childProviderUrls=[...new Set(providerPages.flatMap(p=>extractLinks(p.html,p.url||finalUrl).map(x=>x.href))
+        .filter(x=>{try{
+          const u=new URL(x);return /(^|\.)hoteza\.app$/i.test(u.hostname)&&/menu|food|drink|dining|page\//i.test(u.href);
+        }catch{return false}}))].filter(u=>!providerEvidence.includes(u)).slice(0,30);
+      if(childProviderUrls.length){
+        const children=(await Promise.all(childProviderUrls.map(u=>fetchPage(u,8000)))).filter(Boolean);
+        providerPages=[...providerPages,...children].filter((p,i,a)=>p&&a.findIndex(x=>x.url===p.url)===i);
+      }
 
       const allRoomPages=[...roomPages,...providerPages];
       const content=buildContent(allRoomPages,finalUrl,hotel,{roomOnly:true});
@@ -266,7 +314,8 @@ export default async function handler(req,res){
         content.roomDining.ordering=Object.assign({},content.roomDining.ordering,{
           provider:'hoteza',
           providerEvidence,
-          status:content.roomDining.items?.length?'provider-adapter-required':'catalog-source-required'
+          status:content.roomDining.items?.length?'provider-adapter-required':'catalog-source-required',
+          ...(sharedMenuEvidence?{sharedMenuEvidence}: {})
         });
       }
       return send(res,200,{hotel,content,crawl:{stage:'room-service',scanned:allRoomPages.length,sourcePages:allRoomPages.map(p=>p.url)},providerEvidence});
