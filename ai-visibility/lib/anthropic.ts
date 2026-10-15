@@ -39,10 +39,13 @@ export async function structured<T>(opts: {
   schema: Record<string, unknown>;
   maxTokens?: number;
 }): Promise<{ data: T; usage: { inputTokens: number; outputTokens: number } }> {
+  // Forced tool_choice ("tool"/"any") is not supported on current models, so we ask for the
+  // tool call in the system prompt and fall back to parsing JSON out of the text if needed.
+  const instruction = `\n\nRespond ONLY by calling the \`${opts.toolName}\` tool with the complete result. Do not write any prose.`;
   const res = await anthropic().messages.create({
     model: opts.model,
     max_tokens: opts.maxTokens ?? 4096,
-    system: opts.system,
+    system: (opts.system ?? "") + instruction,
     messages: [{ role: "user", content: opts.user }],
     tools: [
       {
@@ -51,12 +54,21 @@ export async function structured<T>(opts: {
         input_schema: opts.schema as Anthropic.Tool["input_schema"],
       },
     ],
-    tool_choice: { type: "tool", name: opts.toolName },
+    tool_choice: { type: "auto" },
   });
+  const usage = { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens };
   const block = res.content.find((b) => b.type === "tool_use");
-  if (!block || block.type !== "tool_use") throw new Error("No structured output returned");
-  return {
-    data: block.input as T,
-    usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens },
-  };
+  if (block && block.type === "tool_use") return { data: block.input as T, usage };
+
+  // Fallback: model answered in text — try to find a JSON object in it.
+  const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? text.match(/(\{[\s\S]*\})/);
+  if (match) {
+    try {
+      return { data: JSON.parse(match[1]) as T, usage };
+    } catch {
+      /* fall through */
+    }
+  }
+  throw new Error(`No structured output returned (model replied with text: ${text.slice(0, 200)})`);
 }
